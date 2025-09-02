@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/olekukonko/tablewriter"
@@ -12,33 +13,35 @@ func NewProjectTimesCmd() *cobra.Command {
 	var sort string
 
 	cmd := &cobra.Command{
-		Use:     "times [project-name]",
+		Use:     "times [ID_OR_NAME]",
 		Aliases: []string{"t"},
 		Short:   "List time entries for a specific project",
-		Long:    `List all time entries for a specific project, showing start time, end time, and duration.`,
+		Long:    `List all time entries for a specific project, showing start time, end time, and duration. You can specify either the project ID (numeric) or name.`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			projectName := args[0]
+			projectIDOrName := args[0]
 
 			// Validate sort order
 			if sort != "asc" && sort != "desc" {
 				return fmt.Errorf("sort order must be 'asc' or 'desc', got: %s", sort)
 			}
 
+			ctx := context.Background()
+
 			// First check if the project exists
-			_, err := timeService.GetOrCreateProject(projectName)
+			project, err := timeService.GetProjectByIDOrName(ctx, projectIDOrName)
 			if err != nil {
 				return fmt.Errorf("failed to get project: %w", err)
 			}
 
 			// Get time entries for the project
-			entries, err := timeService.GetEntriesForProject(projectName, limit, sort)
+			entries, err := timeService.GetEntriesForProjectByIDOrName(ctx, projectIDOrName, limit, sort)
 			if err != nil {
 				return fmt.Errorf("failed to get time entries: %w", err)
 			}
 
 			if len(entries) == 0 {
-				fmt.Printf("No time entries found for project '%s'.\n", projectName)
+				fmt.Printf("No time entries found for project '%s'.\n", project.Name)
 				return nil
 			}
 

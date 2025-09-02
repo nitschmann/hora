@@ -3,9 +3,10 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/spf13/cobra"
+
 	"github.com/nitschmann/hora/internal/database"
 	"github.com/nitschmann/hora/internal/service"
-	"github.com/spf13/cobra"
 )
 
 // package variables for database and service
@@ -42,8 +43,10 @@ func NewRootCmd() *cobra.Command {
 
 	rootCmd.AddCommand(NewStartCmd())
 	rootCmd.AddCommand(NewStopCmd())
+	rootCmd.AddCommand(NewPauseCmd())
+	rootCmd.AddCommand(NewContinueCmd())
 	rootCmd.AddCommand(NewStatusCmd())
-	rootCmd.AddCommand(NewClearCmd())
+	rootCmd.AddCommand(NewDeleteAllCmd())
 	rootCmd.AddCommand(NewProjectCmd())
 
 	return rootCmd

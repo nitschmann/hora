@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -13,7 +14,8 @@ func NewStatusCmd() *cobra.Command {
 		Short: "Show the currently active time tracking session",
 		Long:  `Show information about the currently active time tracking session, including project name, start time, and current duration.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			activeEntry, err := timeService.GetActiveEntry()
+			ctx := context.Background()
+			activeEntry, err := timeService.GetActiveEntry(ctx)
 			if err != nil {
 				return fmt.Errorf("failed to get active entry: %w", err)
 			}

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/olekukonko/tablewriter"
@@ -14,7 +15,8 @@ func NewProjectListCmd() *cobra.Command {
 		Short:   "List all projects",
 		Long:    `List all projects in your time tracking system.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			projects, err := timeService.GetProjects()
+			ctx := context.Background()
+			projects, err := timeService.GetProjects(ctx)
 			if err != nil {
 				return fmt.Errorf("failed to get projects: %w", err)
 			}
@@ -25,7 +27,7 @@ func NewProjectListCmd() *cobra.Command {
 			}
 
 			table := tablewriter.NewTable(cmd.OutOrStdout())
-			table.Header("Name", "Created", "Last Tracked")
+			table.Header("ID", "Name", "Created", "Last Tracked")
 
 			for _, project := range projects {
 				createdStr := project.CreatedAt.Format("2006-01-02 15:04")
@@ -38,6 +40,7 @@ func NewProjectListCmd() *cobra.Command {
 				}
 
 				table.Append([]string{
+					fmt.Sprintf("%d", project.ID),
 					project.Name,
 					createdStr,
 					lastTrackedStr,

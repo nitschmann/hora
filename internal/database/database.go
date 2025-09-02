@@ -1,510 +1,334 @@
 package database
 
 import (
+	"context"
+	"database/sql"
 	"fmt"
 	"time"
 
-	"github.com/doug-martin/goqu/v9"
-	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/nitschmann/hora/internal/database/migrations"
 	"github.com/nitschmann/hora/internal/model"
+	"github.com/nitschmann/hora/internal/repository"
 )
 
 // SQLiteDatabase implements the Database interface using SQLite
 type SQLiteDatabase struct {
-	db *sqlx.DB
+	db                  *sql.DB
+	projectRepository   repository.Project
+	timeEntryRepository repository.TimeEntry
+	pauseRepository     repository.Pause
 }
 
 // NewSQLiteDatabase creates a new SQLite database connection
-func NewSQLiteDatabase() (Database, error) {
+func NewSQLiteDatabase() (*SQLiteDatabase, error) {
 	dbPath, err := GetDatabasePath()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get database path: %w", err)
 	}
 
-	db, err := sqlx.Open("sqlite3", dbPath)
+	// Open database connection
+	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
-	database := &SQLiteDatabase{db: db}
-
-	// Initialize database schema
-	if err := database.initSchema(); err != nil {
-		return nil, fmt.Errorf("failed to initialize schema: %w", err)
+	// Enable foreign key constraints
+	if _, err := db.Exec("PRAGMA foreign_keys = ON;"); err != nil {
+		return nil, fmt.Errorf("failed to enable foreign keys: %w", err)
 	}
 
-	return database, nil
-}
-
-func (d *SQLiteDatabase) initSchema() error {
-	queries := []string{
-		`CREATE TABLE IF NOT EXISTS projects (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			name TEXT NOT NULL UNIQUE,
-			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-		);`,
-		`CREATE TABLE IF NOT EXISTS time_entries (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			project_id INTEGER NOT NULL,
-			start_time DATETIME NOT NULL,
-			end_time DATETIME,
-			duration INTEGER,
-			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-			FOREIGN KEY (project_id) REFERENCES projects (id)
-		);`,
+	// Run migrations
+	ctx := context.Background()
+	if err := migrations.RunMigrations(ctx, db); err != nil {
+		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}
 
-	for _, query := range queries {
-		if _, err := d.db.Exec(query); err != nil {
-			return err
-		}
-	}
+	// Create repositories
+	projectRepo := repository.NewProject(db)
+	timeEntryRepo := repository.NewTimeEntry(db)
+	pauseRepo := repository.NewPause(db)
 
-	return nil
-}
-
-// Project management methods
-func (d *SQLiteDatabase) GetOrCreateProject(name string) (*model.Project, error) {
-	// Try to get existing project first
-	project, err := d.GetProjectByName(name)
-	if err == nil && project != nil {
-		return project, nil
-	}
-
-	// Create new project if it doesn't exist
-	ds := goqu.Insert("projects").Rows(goqu.Record{"name": name})
-	query, args, err := ds.ToSQL()
-	if err != nil {
-		return nil, fmt.Errorf("failed to build insert query: %w", err)
-	}
-
-	result, err := d.db.Exec(query, args...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create project: %w", err)
-	}
-
-	id, err := result.LastInsertId()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get project ID: %w", err)
-	}
-
-	return &model.Project{
-		ID:        int(id),
-		Name:      name,
-		CreatedAt: time.Now(),
+	return &SQLiteDatabase{
+		db:                  db,
+		projectRepository:   projectRepo,
+		timeEntryRepository: timeEntryRepo,
+		pauseRepository:     pauseRepo,
 	}, nil
 }
 
-func (d *SQLiteDatabase) GetProject(id int) (*model.Project, error) {
-	ds := goqu.Select("id", "name", "created_at").From("projects").Where(goqu.C("id").Eq(id))
-	query, args, err := ds.ToSQL()
-	if err != nil {
-		return nil, fmt.Errorf("failed to build select query: %w", err)
-	}
-
-	var project model.Project
-	err = d.db.Get(&project, query, args...)
-	if err != nil {
-		if err.Error() == "sql: no rows in result set" {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return &project, nil
+// GetDB returns the underlying database connection
+func (d *SQLiteDatabase) GetDB() *sql.DB {
+	return d.db
 }
 
-func (d *SQLiteDatabase) GetProjectByName(name string) (*model.Project, error) {
-	ds := goqu.Select("id", "name", "created_at").From("projects").Where(goqu.C("name").Eq(name))
-	query, args, err := ds.ToSQL()
-	if err != nil {
-		return nil, fmt.Errorf("failed to build select query: %w", err)
-	}
-
-	var project model.Project
-	err = d.db.Get(&project, query, args...)
-	if err != nil {
-		if err.Error() == "sql: no rows in result set" {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return &project, nil
+// GetProjectRepository returns the project repository
+func (d *SQLiteDatabase) GetProjectRepository() repository.Project {
+	return d.projectRepository
 }
 
-func (d *SQLiteDatabase) GetAllProjects() ([]model.Project, error) {
-	// Use raw SQL to get the last tracked time for each project
-	query := `
-		SELECT p.id, p.name, p.created_at, MAX(te.end_time) as last_tracked_at
-		FROM projects p
-		LEFT JOIN time_entries te ON p.id = te.project_id
-		GROUP BY p.id, p.name, p.created_at
-		ORDER BY p.name ASC`
-
-	var results []struct {
-		ID            int       `db:"id"`
-		Name          string    `db:"name"`
-		CreatedAt     time.Time `db:"created_at"`
-		LastTrackedAt *string   `db:"last_tracked_at"`
-	}
-
-	err := d.db.Select(&results, query)
-	if err != nil {
-		return nil, err
-	}
-
-	var projects []model.Project
-	for _, result := range results {
-		var lastTrackedAt *time.Time
-		if result.LastTrackedAt != nil && *result.LastTrackedAt != "" {
-			// Try parsing with RFC3339Nano first (includes microseconds)
-			if parsedTime, err := time.Parse(time.RFC3339Nano, *result.LastTrackedAt); err == nil {
-				lastTrackedAt = &parsedTime
-			} else if parsedTime, err := time.Parse(time.RFC3339, *result.LastTrackedAt); err == nil {
-				// Fallback to RFC3339
-				lastTrackedAt = &parsedTime
-			}
-		}
-
-		projects = append(projects, model.Project{
-			ID:            result.ID,
-			Name:          result.Name,
-			CreatedAt:     result.CreatedAt,
-			LastTrackedAt: lastTrackedAt,
-		})
-	}
-
-	return projects, nil
+// GetTimeEntryRepository returns the time entry repository
+func (d *SQLiteDatabase) GetTimeEntryRepository() repository.TimeEntry {
+	return d.timeEntryRepository
 }
 
-func (d *SQLiteDatabase) RemoveProject(name string) error {
-	// First, get the project to check if it exists
-	project, err := d.GetProjectByName(name)
+// GetPauseRepository returns the pause repository
+func (d *SQLiteDatabase) GetPauseRepository() repository.Pause {
+	return d.pauseRepository
+}
+
+// Project management methods
+
+// GetOrCreateProject retrieves a project by name, or creates it if it doesn't exist
+func (d *SQLiteDatabase) GetOrCreateProject(ctx context.Context, name string) (*model.Project, error) {
+	return d.projectRepository.GetOrCreate(ctx, name)
+}
+
+// GetProject retrieves a project by its ID
+func (d *SQLiteDatabase) GetProject(ctx context.Context, id int) (*model.Project, error) {
+	return d.projectRepository.GetByID(ctx, id)
+}
+
+// GetProjectByName retrieves a project by its name
+func (d *SQLiteDatabase) GetProjectByName(ctx context.Context, name string) (*model.Project, error) {
+	return d.projectRepository.GetByName(ctx, name)
+}
+
+// GetAllProjects retrieves all projects with their last tracked time
+func (d *SQLiteDatabase) GetAllProjects(ctx context.Context) ([]model.Project, error) {
+	return d.projectRepository.GetAll(ctx)
+}
+
+// GetProjectByIDOrName retrieves a project by ID (if numeric) or name
+func (d *SQLiteDatabase) GetProjectByIDOrName(ctx context.Context, idOrName string) (*model.Project, error) {
+	return d.projectRepository.GetByIDOrName(ctx, idOrName)
+}
+
+// RemoveProject removes a project and all its associated time entries
+func (d *SQLiteDatabase) RemoveProject(ctx context.Context, name string) error {
+	// Get project first to get its ID
+	project, err := d.projectRepository.GetByName(ctx, name)
 	if err != nil {
-		return fmt.Errorf("failed to get project: %w", err)
-	}
-	if project == nil {
-		return fmt.Errorf("project '%s' not found", name)
+		return fmt.Errorf("project not found: %w", err)
 	}
 
-	// Delete all time entries for this project first (due to foreign key constraint)
-	ds := goqu.Delete("time_entries").Where(goqu.C("project_id").Eq(project.ID))
-	query, args, err := ds.ToSQL()
-	if err != nil {
-		return fmt.Errorf("failed to build delete query: %w", err)
-	}
-	_, err = d.db.Exec(query, args...)
-	if err != nil {
-		return fmt.Errorf("failed to delete time entries for project: %w", err)
+	// Delete time entries first (foreign key constraint will handle this, but being explicit)
+	if err := d.timeEntryRepository.DeleteByProject(ctx, project.ID); err != nil {
+		return fmt.Errorf("failed to delete time entries: %w", err)
 	}
 
-	// Delete the project
-	ds = goqu.Delete("projects").Where(goqu.C("id").Eq(project.ID))
-	query, args, err = ds.ToSQL()
+	// Delete project
+	return d.projectRepository.Delete(ctx, name)
+}
+
+// RemoveProjectByIDOrName removes a project by ID (if numeric) or name and all its associated time entries
+func (d *SQLiteDatabase) RemoveProjectByIDOrName(ctx context.Context, idOrName string) error {
+	// Get project first to get its ID
+	project, err := d.projectRepository.GetByIDOrName(ctx, idOrName)
 	if err != nil {
-		return fmt.Errorf("failed to build delete query: %w", err)
+		return fmt.Errorf("project not found: %w", err)
 	}
-	_, err = d.db.Exec(query, args...)
+
+	// Delete time entries first (foreign key constraint will handle this, but being explicit)
+	if err := d.timeEntryRepository.DeleteByProject(ctx, project.ID); err != nil {
+		return fmt.Errorf("failed to delete time entries: %w", err)
+	}
+
+	// Delete project by ID
+	return d.projectRepository.DeleteByID(ctx, project.ID)
+}
+
+// Time tracking methods
+
+// StartTracking starts tracking time for a project
+func (d *SQLiteDatabase) StartTracking(ctx context.Context, project string) error {
+	// Check for active entry
+	activeEntry, err := d.timeEntryRepository.GetActive(ctx)
+	if err == nil && activeEntry != nil {
+		return fmt.Errorf("a time tracking session is already active for project '%s'", activeEntry.Project.Name)
+	}
+
+	// Get or create project
+	proj, err := d.projectRepository.GetOrCreate(ctx, project)
 	if err != nil {
-		return fmt.Errorf("failed to delete project: %w", err)
+		return fmt.Errorf("failed to get or create project: %w", err)
+	}
+
+	// Create new time entry
+	_, err = d.timeEntryRepository.Create(ctx, proj.ID, time.Now())
+	if err != nil {
+		return fmt.Errorf("failed to create time entry: %w", err)
 	}
 
 	return nil
 }
 
-func (d *SQLiteDatabase) StartTracking(project string) error {
-	// Check if there's already an active session
-	activeEntry, err := d.GetActiveEntry()
-	if err != nil {
-		return fmt.Errorf("failed to check for active entry: %w", err)
+// StartTrackingForce starts tracking time for a project, stopping any active session first
+func (d *SQLiteDatabase) StartTrackingForce(ctx context.Context, project string) error {
+	// Stop all active entries
+	if err := d.timeEntryRepository.StopAllActive(ctx); err != nil {
+		return fmt.Errorf("failed to stop active entries: %w", err)
 	}
 
-	if activeEntry != nil {
-		return fmt.Errorf("already tracking time for project: %s", activeEntry.Project.Name)
-	}
-
-	// Get or create the project
-	proj, err := d.GetOrCreateProject(project)
+	// Get or create project
+	proj, err := d.projectRepository.GetOrCreate(ctx, project)
 	if err != nil {
 		return fmt.Errorf("failed to get or create project: %w", err)
 	}
 
-	ds := goqu.Insert("time_entries").Rows(goqu.Record{
-		"project_id": proj.ID,
-		"start_time": time.Now(),
-	})
-	query, args, err := ds.ToSQL()
+	// Create new time entry
+	_, err = d.timeEntryRepository.Create(ctx, proj.ID, time.Now())
 	if err != nil {
-		return fmt.Errorf("failed to build insert query: %w", err)
+		return fmt.Errorf("failed to create time entry: %w", err)
 	}
 
-	_, err = d.db.Exec(query, args...)
-	return err
+	return nil
 }
 
-func (d *SQLiteDatabase) StartTrackingForce(project string) error {
-	// Stop ALL active sessions first
-	updateDs := goqu.Update("time_entries").
-		Set(goqu.Record{
-			"end_time": time.Now(),
-		}).
-		Where(goqu.C("end_time").IsNull())
-
-	query, args, err := updateDs.ToSQL()
+// StopTracking stops the currently active time tracking session
+func (d *SQLiteDatabase) StopTracking(ctx context.Context) (*model.TimeEntry, error) {
+	// Get active entry
+	activeEntry, err := d.timeEntryRepository.GetActive(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to build update query: %w", err)
+		return nil, fmt.Errorf("no active time tracking session found: %w", err)
 	}
 
-	_, err = d.db.Exec(query, args...)
-	if err != nil {
-		return fmt.Errorf("failed to stop active sessions: %w", err)
+	// End any active pause first
+	activePause, err := d.pauseRepository.GetActivePause(ctx, activeEntry.ID)
+	if err == nil {
+		// There's an active pause, end it
+		now := time.Now()
+		pauseDuration := now.Sub(activePause.PauseStart)
+		if err := d.pauseRepository.EndPause(ctx, activePause.ID, now, pauseDuration); err != nil {
+			return nil, fmt.Errorf("failed to end active pause: %w", err)
+		}
 	}
 
-	// Get or create the project
-	proj, err := d.GetOrCreateProject(project)
-	if err != nil {
-		return fmt.Errorf("failed to get or create project: %w", err)
-	}
-
-	insertDs := goqu.Insert("time_entries").Rows(goqu.Record{
-		"project_id": proj.ID,
-		"start_time": time.Now(),
-	})
-	query, args, err = insertDs.ToSQL()
-	if err != nil {
-		return fmt.Errorf("failed to build insert query: %w", err)
-	}
-
-	_, err = d.db.Exec(query, args...)
-	return err
-}
-
-func (d *SQLiteDatabase) StopTracking() (*model.TimeEntry, error) {
-	activeEntry, err := d.GetActiveEntry()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get active entry: %w", err)
-	}
-
-	if activeEntry == nil {
-		return nil, fmt.Errorf("no active time tracking session found")
-	}
-
+	// Calculate total duration minus pause time
 	endTime := time.Now()
-	duration := endTime.Sub(activeEntry.StartTime)
+	totalDuration := endTime.Sub(activeEntry.StartTime)
 
-	ds := goqu.Update("time_entries").
-		Set(goqu.Record{
-			"end_time": endTime,
-			"duration": int64(duration),
-		}).
-		Where(goqu.C("id").Eq(activeEntry.ID))
-
-	query, args, err := ds.ToSQL()
+	// Get all pauses for this time entry to calculate total pause time
+	pauses, err := d.pauseRepository.GetByTimeEntry(ctx, activeEntry.ID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build update query: %w", err)
+		return nil, fmt.Errorf("failed to get pauses: %w", err)
 	}
 
-	_, err = d.db.Exec(query, args...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to stop tracking: %w", err)
+	var totalPauseTime time.Duration
+	for _, pause := range pauses {
+		if pause.Duration != nil {
+			totalPauseTime += *pause.Duration
+		}
 	}
 
-	// Return the updated entry
-	activeEntry.EndTime = &endTime
-	activeEntry.Duration = &duration
+	// Calculate actual work duration (total time minus pause time)
+	workDuration := totalDuration - totalPauseTime
 
-	return activeEntry, nil
+	// Update the entry
+	if err := d.timeEntryRepository.UpdateEndTime(ctx, activeEntry.ID, endTime, workDuration); err != nil {
+		return nil, fmt.Errorf("failed to update time entry: %w", err)
+	}
+
+	// Get updated entry
+	updatedEntry, err := d.timeEntryRepository.GetByID(ctx, activeEntry.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get updated time entry: %w", err)
+	}
+
+	return updatedEntry, nil
 }
 
-func (d *SQLiteDatabase) GetActiveEntry() (*model.TimeEntry, error) {
-	query := `
-		SELECT te.id, te.project_id, te.start_time, te.created_at, p.name
-		FROM time_entries te
-		JOIN projects p ON te.project_id = p.id
-		WHERE te.end_time IS NULL 
-		ORDER BY te.start_time DESC 
-		LIMIT 1`
-
-	var result struct {
-		ID          int       `db:"id"`
-		ProjectID   int       `db:"project_id"`
-		StartTime   time.Time `db:"start_time"`
-		CreatedAt   time.Time `db:"created_at"`
-		ProjectName string    `db:"name"`
-	}
-
-	err := d.db.Get(&result, query)
-	if err != nil {
-		// Check if it's a "no rows" error
-		if err.Error() == "sql: no rows in result set" {
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	entry := &model.TimeEntry{
-		ID:        result.ID,
-		ProjectID: result.ProjectID,
-		StartTime: result.StartTime,
-		CreatedAt: result.CreatedAt,
-		Project: &model.Project{
-			ID:   result.ProjectID,
-			Name: result.ProjectName,
-		},
-	}
-
-	return entry, nil
+// GetActiveEntry retrieves the currently active time entry
+func (d *SQLiteDatabase) GetActiveEntry(ctx context.Context) (*model.TimeEntry, error) {
+	return d.timeEntryRepository.GetActive(ctx)
 }
 
-func (d *SQLiteDatabase) GetEntries(limit int) ([]model.TimeEntry, error) {
-	ds := goqu.Select(
-		"te.id", "te.project_id", "te.start_time", "te.end_time", "te.duration", "te.created_at",
-		goqu.C("p.id").As("project_id2"), goqu.C("p.name").As("project_name"), goqu.C("p.created_at").As("project_created_at"),
-	).
-		From(goqu.T("time_entries").As("te")).
-		Join(goqu.T("projects").As("p"), goqu.On(goqu.C("te.project_id").Eq(goqu.C("p.id")))).
-		Order(goqu.C("te.start_time").Desc()).
-		Limit(uint(limit))
-
-	query, args, err := ds.ToSQL()
-	if err != nil {
-		return nil, fmt.Errorf("failed to build select query: %w", err)
-	}
-
-	var results []struct {
-		ID               int        `db:"id"`
-		ProjectID        int        `db:"project_id"`
-		StartTime        time.Time  `db:"start_time"`
-		EndTime          *time.Time `db:"end_time"`
-		Duration         *int64     `db:"duration"`
-		CreatedAt        time.Time  `db:"created_at"`
-		ProjectID2       int        `db:"project_id2"`
-		ProjectName      string     `db:"project_name"`
-		ProjectCreatedAt time.Time  `db:"project_created_at"`
-	}
-
-	err = d.db.Select(&results, query, args...)
-	if err != nil {
-		return nil, err
-	}
-
-	var entries []model.TimeEntry
-	for _, result := range results {
-		entry := model.TimeEntry{
-			ID:        result.ID,
-			ProjectID: result.ProjectID,
-			StartTime: result.StartTime,
-			EndTime:   result.EndTime,
-			CreatedAt: result.CreatedAt,
-			Project: &model.Project{
-				ID:        result.ProjectID2,
-				Name:      result.ProjectName,
-				CreatedAt: result.ProjectCreatedAt,
-			},
-		}
-
-		if result.Duration != nil {
-			duration := time.Duration(*result.Duration)
-			entry.Duration = &duration
-		}
-
-		entries = append(entries, entry)
-	}
-
-	return entries, nil
+// GetEntries retrieves all time entries with a limit
+func (d *SQLiteDatabase) GetEntries(ctx context.Context, limit int) ([]model.TimeEntry, error) {
+	return d.timeEntryRepository.GetAll(ctx, limit)
 }
 
-func (d *SQLiteDatabase) GetEntriesForProject(projectName string, limit int, sortOrder string) ([]model.TimeEntry, error) {
-	// Validate sort order
-	var orderClause string
-	switch sortOrder {
-	case "asc":
-		orderClause = "ORDER BY te.start_time ASC"
-	case "desc":
-		orderClause = "ORDER BY te.start_time DESC"
-	default:
-		orderClause = "ORDER BY te.start_time DESC" // default to desc
-	}
-
-	// Use raw SQL to avoid goqu issues
-	query := fmt.Sprintf(`
-		SELECT te.id, te.project_id, te.start_time, te.end_time, te.duration, te.created_at,
-		       p.id as project_id2, p.name as project_name, p.created_at as project_created_at
-		FROM time_entries te
-		JOIN projects p ON te.project_id = p.id
-		WHERE p.name = ?
-		%s
-		LIMIT ?`, orderClause)
-
-	var results []struct {
-		ID               int        `db:"id"`
-		ProjectID        int        `db:"project_id"`
-		StartTime        time.Time  `db:"start_time"`
-		EndTime          *time.Time `db:"end_time"`
-		Duration         *int64     `db:"duration"`
-		CreatedAt        time.Time  `db:"created_at"`
-		ProjectID2       int        `db:"project_id2"`
-		ProjectName      string     `db:"project_name"`
-		ProjectCreatedAt time.Time  `db:"project_created_at"`
-	}
-
-	err := d.db.Select(&results, query, projectName, limit)
-	if err != nil {
-		return nil, err
-	}
-
-	var entries []model.TimeEntry
-	for _, result := range results {
-		entry := model.TimeEntry{
-			ID:        result.ID,
-			ProjectID: result.ProjectID,
-			StartTime: result.StartTime,
-			EndTime:   result.EndTime,
-			CreatedAt: result.CreatedAt,
-			Project: &model.Project{
-				ID:        result.ProjectID2,
-				Name:      result.ProjectName,
-				CreatedAt: result.ProjectCreatedAt,
-			},
-		}
-
-		if result.Duration != nil {
-			duration := time.Duration(*result.Duration)
-			entry.Duration = &duration
-		}
-
-		entries = append(entries, entry)
-	}
-
-	return entries, nil
+// GetEntriesForProject retrieves time entries for a specific project
+func (d *SQLiteDatabase) GetEntriesForProject(ctx context.Context, projectName string, limit int, sortOrder string) ([]model.TimeEntry, error) {
+	return d.timeEntryRepository.GetByProjectName(ctx, projectName, limit, sortOrder)
 }
 
-func (d *SQLiteDatabase) ClearAllEntries() error {
-	// Delete all time entries first (due to foreign key constraint)
-	ds := goqu.Delete("time_entries")
-	query, args, err := ds.ToSQL()
-	if err != nil {
-		return fmt.Errorf("failed to build delete query: %w", err)
-	}
-	_, err = d.db.Exec(query, args...)
-	if err != nil {
-		return fmt.Errorf("failed to clear time entries: %w", err)
+// GetEntriesForProjectByIDOrName retrieves time entries for a project by ID (if numeric) or name
+func (d *SQLiteDatabase) GetEntriesForProjectByIDOrName(ctx context.Context, projectIDOrName string, limit int, sortOrder string) ([]model.TimeEntry, error) {
+	return d.timeEntryRepository.GetByProjectIDOrName(ctx, projectIDOrName, limit, sortOrder)
+}
+
+// Data management methods
+
+// ClearAllEntries removes all time entries and projects from the database
+func (d *SQLiteDatabase) ClearAllEntries(ctx context.Context) error {
+	// Delete all pauses first
+	if err := d.pauseRepository.DeleteAll(ctx); err != nil {
+		return fmt.Errorf("failed to delete pauses: %w", err)
 	}
 
-	// Delete all projects
-	ds = goqu.Delete("projects")
-	query, args, err = ds.ToSQL()
-	if err != nil {
-		return fmt.Errorf("failed to build delete query: %w", err)
+	// Delete all time entries (foreign key constraints will handle remaining pauses)
+	if err := d.timeEntryRepository.DeleteAll(ctx); err != nil {
+		return fmt.Errorf("failed to delete time entries: %w", err)
 	}
-	_, err = d.db.Exec(query, args...)
+
+	// Note: We don't delete projects as they might be referenced elsewhere
+	// If you want to delete projects too, you would need to add a DeleteAll method to ProjectRepository
+
+	return nil
+}
+
+// Pause management methods
+
+// PauseTracking pauses the currently active time tracking session
+func (d *SQLiteDatabase) PauseTracking(ctx context.Context) error {
+	// Get the active time entry
+	activeEntry, err := d.timeEntryRepository.GetActive(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to clear projects: %w", err)
+		return fmt.Errorf("no active time tracking session found: %w", err)
+	}
+
+	// Check if there's already an active pause
+	_, err = d.pauseRepository.GetActivePause(ctx, activeEntry.ID)
+	if err == nil {
+		return fmt.Errorf("time tracking is already paused")
+	}
+
+	// Create a new pause
+	_, err = d.pauseRepository.Create(ctx, activeEntry.ID, time.Now())
+	if err != nil {
+		return fmt.Errorf("failed to create pause: %w", err)
 	}
 
 	return nil
 }
 
+// ContinueTracking continues the currently paused time tracking session
+func (d *SQLiteDatabase) ContinueTracking(ctx context.Context) error {
+	// Get the active time entry
+	activeEntry, err := d.timeEntryRepository.GetActive(ctx)
+	if err != nil {
+		return fmt.Errorf("no active time tracking session found: %w", err)
+	}
+
+	// Get the active pause
+	activePause, err := d.pauseRepository.GetActivePause(ctx, activeEntry.ID)
+	if err != nil {
+		return fmt.Errorf("no active pause found: %w", err)
+	}
+
+	// End the pause
+	now := time.Now()
+	duration := now.Sub(activePause.PauseStart)
+	err = d.pauseRepository.EndPause(ctx, activePause.ID, now, duration)
+	if err != nil {
+		return fmt.Errorf("failed to end pause: %w", err)
+	}
+
+	return nil
+}
+
+// Close closes the database connection
 func (d *SQLiteDatabase) Close() error {
 	return d.db.Close()
 }

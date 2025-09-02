@@ -1,27 +1,48 @@
 package database
 
-import "github.com/nitschmann/hora/internal/model"
+import (
+	"context"
+	"database/sql"
+
+	"github.com/nitschmann/hora/internal/model"
+	"github.com/nitschmann/hora/internal/repository"
+)
 
 // Database defines the interface for time tracking database operations
 type Database interface {
 	// Project management
-	GetOrCreateProject(name string) (*model.Project, error)
-	GetProject(id int) (*model.Project, error)
-	GetProjectByName(name string) (*model.Project, error)
-	GetAllProjects() ([]model.Project, error)
-	RemoveProject(name string) error
+	GetOrCreateProject(ctx context.Context, name string) (*model.Project, error)
+	GetProject(ctx context.Context, id int) (*model.Project, error)
+	GetProjectByName(ctx context.Context, name string) (*model.Project, error)
+	GetProjectByIDOrName(ctx context.Context, idOrName string) (*model.Project, error)
+	GetAllProjects(ctx context.Context) ([]model.Project, error)
+	RemoveProject(ctx context.Context, name string) error
+	RemoveProjectByIDOrName(ctx context.Context, idOrName string) error
 
 	// Time tracking
-	StartTracking(project string) error
-	StartTrackingForce(project string) error
-	StopTracking() (*model.TimeEntry, error)
-	GetActiveEntry() (*model.TimeEntry, error)
-	GetEntries(limit int) ([]model.TimeEntry, error)
-	GetEntriesForProject(projectName string, limit int, sortOrder string) ([]model.TimeEntry, error)
+	StartTracking(ctx context.Context, project string) error
+	StartTrackingForce(ctx context.Context, project string) error
+	StopTracking(ctx context.Context) (*model.TimeEntry, error)
+	GetActiveEntry(ctx context.Context) (*model.TimeEntry, error)
+	GetEntries(ctx context.Context, limit int) ([]model.TimeEntry, error)
+	GetEntriesForProject(ctx context.Context, projectName string, limit int, sortOrder string) ([]model.TimeEntry, error)
+	GetEntriesForProjectByIDOrName(ctx context.Context, projectIDOrName string, limit int, sortOrder string) ([]model.TimeEntry, error)
 
 	// Data management
-	ClearAllEntries() error
+	ClearAllEntries(ctx context.Context) error
+
+	// Pause management
+	PauseTracking(ctx context.Context) error
+	ContinueTracking(ctx context.Context) error
 
 	// Connection management
 	Close() error
+
+	// Get underlying database connection for repositories
+	GetDB() *sql.DB
+
+	// Get repositories
+	GetProjectRepository() repository.Project
+	GetTimeEntryRepository() repository.TimeEntry
+	GetPauseRepository() repository.Pause
 }
