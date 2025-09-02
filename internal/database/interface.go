@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"github.com/nitschmann/hora/internal/model"
 	"github.com/nitschmann/hora/internal/repository"
@@ -20,13 +21,12 @@ type Database interface {
 	RemoveProjectByIDOrName(ctx context.Context, idOrName string) error
 
 	// Time tracking
-	StartTracking(ctx context.Context, project string) error
-	StartTrackingForce(ctx context.Context, project string) error
+	StartTracking(ctx context.Context, project string, force bool) error
 	StopTracking(ctx context.Context) (*model.TimeEntry, error)
 	GetActiveEntry(ctx context.Context) (*model.TimeEntry, error)
 	GetEntries(ctx context.Context, limit int) ([]model.TimeEntry, error)
-	GetEntriesForProject(ctx context.Context, projectName string, limit int, sortOrder string) ([]model.TimeEntry, error)
-	GetEntriesForProjectByIDOrName(ctx context.Context, projectIDOrName string, limit int, sortOrder string) ([]model.TimeEntry, error)
+	GetEntriesForProject(ctx context.Context, projectIDOrName string, limit int, sortOrder string) ([]model.TimeEntry, error)
+	GetEntriesForProjectWithPauses(ctx context.Context, projectIDOrName string, limit int, sortOrder string, since *time.Time) ([]repository.TimeEntryWithPauses, error)
 
 	// Data management
 	ClearAllEntries(ctx context.Context) error

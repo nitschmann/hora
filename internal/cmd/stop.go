@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -13,7 +12,7 @@ func NewStopCmd() *cobra.Command {
 		Short: "Stop the current time tracking session",
 		Long:  `Stop the currently active time tracking session and display the duration.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 			entry, err := timeService.StopTracking(ctx)
 			if err != nil {
 				return err

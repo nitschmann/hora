@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -11,7 +10,7 @@ func NewProjectRemoveCmd() *cobra.Command {
 	var force bool
 
 	cmd := &cobra.Command{
-		Use:     "remove [ID_OR_NAME]",
+		Use:     "remove [PROJECT_ID_OR_NAME]",
 		Aliases: []string{"rm"},
 		Short:   "Remove a project and all its time entries",
 		Long:    `Remove a project and all its associated time entries. This action cannot be undone. You can specify either the project ID (numeric) or name.`,
@@ -29,7 +28,7 @@ func NewProjectRemoveCmd() *cobra.Command {
 				}
 			}
 
-			ctx := context.Background()
+			ctx := cmd.Context()
 			err := timeService.RemoveProjectByIDOrName(ctx, projectIDOrName)
 			if err != nil {
 				return fmt.Errorf("failed to remove project: %w", err)

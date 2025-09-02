@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -25,7 +24,7 @@ func NewDeleteAllCmd() *cobra.Command {
 				}
 			}
 
-			ctx := context.Background()
+			ctx := cmd.Context()
 			err := timeService.ClearAllData(ctx)
 			if err != nil {
 				return fmt.Errorf("failed to delete all data: %w", err)

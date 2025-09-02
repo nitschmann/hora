@@ -10,6 +10,13 @@ import (
 	"github.com/nitschmann/hora/internal/model"
 )
 
+// TimeEntryWithPauses represents a time entry with its pause information
+type TimeEntryWithPauses struct {
+	model.TimeEntry
+	PauseCount int           `json:"pause_count"`
+	PauseTime  time.Duration `json:"pause_time"`
+}
+
 // TimeEntry defines the interface for time entry data operations
 type TimeEntry interface {
 	// Create creates a new time entry
@@ -35,6 +42,9 @@ type TimeEntry interface {
 
 	// GetByProjectIDOrName retrieves time entries for a project by ID (if numeric) or name
 	GetByProjectIDOrName(ctx context.Context, projectIDOrName string, limit int, sortOrder string) ([]model.TimeEntry, error)
+
+	// GetByProjectIDOrNameWithPauses retrieves time entries with pause information for a project by ID (if numeric) or name
+	GetByProjectIDOrNameWithPauses(ctx context.Context, projectIDOrName string, limit int, sortOrder string, since *time.Time) ([]TimeEntryWithPauses, error)
 
 	// GetAll retrieves all time entries with a limit
 	GetAll(ctx context.Context, limit int) ([]model.TimeEntry, error)
@@ -288,6 +298,160 @@ func (r *TimeEntryImpl) GetByProjectIDOrName(ctx context.Context, projectIDOrNam
 
 	// It's a name
 	return r.GetByProjectName(ctx, projectIDOrName, limit, sortOrder)
+}
+
+// GetByProjectIDOrNameWithPauses retrieves time entries with pause information for a project by ID (if numeric) or name
+func (r *TimeEntryImpl) GetByProjectIDOrNameWithPauses(ctx context.Context, projectIDOrName string, limit int, sortOrder string, since *time.Time) ([]TimeEntryWithPauses, error) {
+	// Try to parse as integer first
+	if projectID, err := strconv.Atoi(projectIDOrName); err == nil {
+		// It's a numeric ID
+		return r.GetByProjectWithPauses(ctx, projectID, limit, sortOrder, since)
+	}
+
+	// It's a name
+	return r.GetByProjectNameWithPauses(ctx, projectIDOrName, limit, sortOrder, since)
+}
+
+// GetByProjectWithPauses retrieves time entries with pause information for a specific project
+func (r *TimeEntryImpl) GetByProjectWithPauses(ctx context.Context, projectID int, limit int, sortOrder string, since *time.Time) ([]TimeEntryWithPauses, error) {
+	var orderClause string
+	switch sortOrder {
+	case "asc":
+		orderClause = "ORDER BY te.start_time ASC"
+	case "desc":
+		orderClause = "ORDER BY te.start_time DESC"
+	default:
+		orderClause = "ORDER BY te.start_time DESC"
+	}
+
+	query := `
+		SELECT te.id, te.project_id, te.start_time, te.end_time, te.duration, te.created_at,
+		       p.id as project_id2, p.name as project_name, p.created_at as project_created_at,
+		       COALESCE(pause_stats.pause_count, 0) as pause_count,
+		       COALESCE(pause_stats.total_pause_time, 0) as total_pause_time
+		FROM time_entries te
+		JOIN projects p ON te.project_id = p.id
+		LEFT JOIN (
+			SELECT time_entry_id, 
+			       COUNT(*) as pause_count,
+			       SUM(COALESCE(duration, 0)) as total_pause_time
+			FROM pauses 
+			WHERE pause_end IS NOT NULL
+			GROUP BY time_entry_id
+		) pause_stats ON te.id = pause_stats.time_entry_id
+		WHERE te.project_id = ?`
+
+	args := []interface{}{projectID}
+
+	if since != nil {
+		query += ` AND te.start_time >= ?`
+		args = append(args, *since)
+	}
+
+	query += ` ` + orderClause + ` LIMIT ?;`
+	args = append(args, limit)
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	return r.scanTimeEntriesWithPauses(rows)
+}
+
+// GetByProjectNameWithPauses retrieves time entries with pause information for a project by name
+func (r *TimeEntryImpl) GetByProjectNameWithPauses(ctx context.Context, projectName string, limit int, sortOrder string, since *time.Time) ([]TimeEntryWithPauses, error) {
+	var orderClause string
+	switch sortOrder {
+	case "asc":
+		orderClause = "ORDER BY te.start_time ASC"
+	case "desc":
+		orderClause = "ORDER BY te.start_time DESC"
+	default:
+		orderClause = "ORDER BY te.start_time DESC"
+	}
+
+	query := `
+		SELECT te.id, te.project_id, te.start_time, te.end_time, te.duration, te.created_at,
+		       p.id as project_id2, p.name as project_name, p.created_at as project_created_at,
+		       COALESCE(pause_stats.pause_count, 0) as pause_count,
+		       COALESCE(pause_stats.total_pause_time, 0) as total_pause_time
+		FROM time_entries te
+		JOIN projects p ON te.project_id = p.id
+		LEFT JOIN (
+			SELECT time_entry_id, 
+			       COUNT(*) as pause_count,
+			       SUM(COALESCE(duration, 0)) as total_pause_time
+			FROM pauses 
+			WHERE pause_end IS NOT NULL
+			GROUP BY time_entry_id
+		) pause_stats ON te.id = pause_stats.time_entry_id
+		WHERE p.name = ?`
+
+	args := []interface{}{projectName}
+
+	if since != nil {
+		query += ` AND te.start_time >= ?`
+		args = append(args, *since)
+	}
+
+	query += ` ` + orderClause + ` LIMIT ?;`
+	args = append(args, limit)
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	return r.scanTimeEntriesWithPauses(rows)
+}
+
+// scanTimeEntriesWithPauses scans rows into TimeEntryWithPauses structs
+func (r *TimeEntryImpl) scanTimeEntriesWithPauses(rows *sql.Rows) ([]TimeEntryWithPauses, error) {
+	var entries []TimeEntryWithPauses
+
+	for rows.Next() {
+		var entry TimeEntryWithPauses
+		var projectID2 int
+		var projectName string
+		var projectCreatedAt time.Time
+		var pauseCount int
+		var totalPauseTimeSeconds int64
+
+		err := rows.Scan(
+			&entry.ID,
+			&entry.ProjectID,
+			&entry.StartTime,
+			&entry.EndTime,
+			&entry.Duration,
+			&entry.CreatedAt,
+			&projectID2,
+			&projectName,
+			&projectCreatedAt,
+			&pauseCount,
+			&totalPauseTimeSeconds,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		// Set project information
+		entry.Project = &model.Project{
+			ID:        projectID2,
+			Name:      projectName,
+			CreatedAt: projectCreatedAt,
+		}
+
+		// Set pause information
+		entry.PauseCount = pauseCount
+		entry.PauseTime = time.Duration(totalPauseTimeSeconds) * time.Second
+
+		entries = append(entries, entry)
+	}
+
+	return entries, rows.Err()
 }
 
 // DeleteByProject deletes all time entries for a specific project

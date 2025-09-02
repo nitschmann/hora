@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -30,19 +29,15 @@ func NewStartCmd() *cobra.Command {
 				}
 			}
 
-			ctx := context.Background()
-			var err error
+			ctx := cmd.Context()
+			err := timeService.StartTracking(ctx, project, force)
+			if err != nil {
+				return err
+			}
+
 			if force {
-				err = timeService.StartTrackingForce(ctx, project)
-				if err != nil {
-					return err
-				}
 				fmt.Printf("Started tracking time for project: %s (stopped previous session)\n", project)
 			} else {
-				err = timeService.StartTracking(ctx, project)
-				if err != nil {
-					return err
-				}
 				fmt.Printf("Started tracking time for project: %s\n", project)
 			}
 

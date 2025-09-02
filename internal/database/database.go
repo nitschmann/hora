@@ -141,33 +141,18 @@ func (d *SQLiteDatabase) RemoveProjectByIDOrName(ctx context.Context, idOrName s
 // Time tracking methods
 
 // StartTracking starts tracking time for a project
-func (d *SQLiteDatabase) StartTracking(ctx context.Context, project string) error {
-	// Check for active entry
-	activeEntry, err := d.timeEntryRepository.GetActive(ctx)
-	if err == nil && activeEntry != nil {
-		return fmt.Errorf("a time tracking session is already active for project '%s'", activeEntry.Project.Name)
-	}
-
-	// Get or create project
-	proj, err := d.projectRepository.GetOrCreate(ctx, project)
-	if err != nil {
-		return fmt.Errorf("failed to get or create project: %w", err)
-	}
-
-	// Create new time entry
-	_, err = d.timeEntryRepository.Create(ctx, proj.ID, time.Now())
-	if err != nil {
-		return fmt.Errorf("failed to create time entry: %w", err)
-	}
-
-	return nil
-}
-
-// StartTrackingForce starts tracking time for a project, stopping any active session first
-func (d *SQLiteDatabase) StartTrackingForce(ctx context.Context, project string) error {
-	// Stop all active entries
-	if err := d.timeEntryRepository.StopAllActive(ctx); err != nil {
-		return fmt.Errorf("failed to stop active entries: %w", err)
+func (d *SQLiteDatabase) StartTracking(ctx context.Context, project string, force bool) error {
+	// Check for active entry if not forcing
+	if !force {
+		activeEntry, err := d.timeEntryRepository.GetActive(ctx)
+		if err == nil && activeEntry != nil {
+			return fmt.Errorf("a time tracking session is already active for project '%s'", activeEntry.Project.Name)
+		}
+	} else {
+		// Stop all active entries when forcing
+		if err := d.timeEntryRepository.StopAllActive(ctx); err != nil {
+			return fmt.Errorf("failed to stop active entries: %w", err)
+		}
 	}
 
 	// Get or create project
@@ -248,14 +233,14 @@ func (d *SQLiteDatabase) GetEntries(ctx context.Context, limit int) ([]model.Tim
 	return d.timeEntryRepository.GetAll(ctx, limit)
 }
 
-// GetEntriesForProject retrieves time entries for a specific project
-func (d *SQLiteDatabase) GetEntriesForProject(ctx context.Context, projectName string, limit int, sortOrder string) ([]model.TimeEntry, error) {
-	return d.timeEntryRepository.GetByProjectName(ctx, projectName, limit, sortOrder)
+// GetEntriesForProject retrieves time entries for a project by ID (if numeric) or name
+func (d *SQLiteDatabase) GetEntriesForProject(ctx context.Context, projectIDOrName string, limit int, sortOrder string) ([]model.TimeEntry, error) {
+	return d.timeEntryRepository.GetByProjectIDOrName(ctx, projectIDOrName, limit, sortOrder)
 }
 
-// GetEntriesForProjectByIDOrName retrieves time entries for a project by ID (if numeric) or name
-func (d *SQLiteDatabase) GetEntriesForProjectByIDOrName(ctx context.Context, projectIDOrName string, limit int, sortOrder string) ([]model.TimeEntry, error) {
-	return d.timeEntryRepository.GetByProjectIDOrName(ctx, projectIDOrName, limit, sortOrder)
+// GetEntriesForProjectWithPauses retrieves time entries with pause information for a project by ID (if numeric) or name
+func (d *SQLiteDatabase) GetEntriesForProjectWithPauses(ctx context.Context, projectIDOrName string, limit int, sortOrder string, since *time.Time) ([]repository.TimeEntryWithPauses, error) {
+	return d.timeEntryRepository.GetByProjectIDOrNameWithPauses(ctx, projectIDOrName, limit, sortOrder, since)
 }
 
 // Data management methods

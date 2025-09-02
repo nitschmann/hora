@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/olekukonko/tablewriter"
@@ -15,7 +14,7 @@ func NewProjectListCmd() *cobra.Command {
 		Short:   "List all projects",
 		Long:    `List all projects in your time tracking system.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 			projects, err := timeService.GetProjects(ctx)
 			if err != nil {
 				return fmt.Errorf("failed to get projects: %w", err)
