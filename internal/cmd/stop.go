@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/nitschmann/hora/internal/backgroundtracker"
 	"github.com/spf13/cobra"
 )
 
@@ -22,6 +23,11 @@ func NewStopCmd() *cobra.Command {
 
 			fmt.Printf("Stopped tracking time for project: %s\n", entry.Project.Name)
 			fmt.Printf("Duration: %s\n", durationStr)
+
+			err = backgroundtracker.Stop()
+			if err != nil {
+				fmt.Printf("Warning: Failed to stop background tracker: %v\n", err)
+			}
 
 			return nil
 		},

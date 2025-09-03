@@ -29,7 +29,7 @@ func NewProjectRemoveCmd() *cobra.Command {
 			}
 
 			ctx := cmd.Context()
-			err := timeService.RemoveProjectByIDOrName(ctx, projectIDOrName)
+			err := timeService.RemoveProject(ctx, projectIDOrName)
 			if err != nil {
 				return fmt.Errorf("failed to remove project: %w", err)
 			}

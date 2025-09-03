@@ -46,6 +46,12 @@ type TimeEntry interface {
 	// GetByProjectIDOrNameWithPauses retrieves time entries with pause information for a project by ID (if numeric) or name
 	GetByProjectIDOrNameWithPauses(ctx context.Context, projectIDOrName string, limit int, sortOrder string, since *time.Time) ([]TimeEntryWithPauses, error)
 
+	// GetTotalTimeByProjectIDOrName retrieves the total tracked time for a project by ID (if numeric) or name
+	GetTotalTimeByProjectIDOrName(ctx context.Context, projectIDOrName string, since *time.Time) (time.Duration, error)
+
+	// GetAllWithPauses retrieves all time entries with pause information across all projects
+	GetAllWithPauses(ctx context.Context, limit int, sortOrder string, since *time.Time) ([]TimeEntryWithPauses, error)
+
 	// GetAll retrieves all time entries with a limit
 	GetAll(ctx context.Context, limit int) ([]model.TimeEntry, error)
 
@@ -419,13 +425,14 @@ func (r *TimeEntryImpl) scanTimeEntriesWithPauses(rows *sql.Rows) ([]TimeEntryWi
 		var projectCreatedAt time.Time
 		var pauseCount int
 		var totalPauseTimeSeconds int64
+		var durationSeconds *int64
 
 		err := rows.Scan(
 			&entry.ID,
 			&entry.ProjectID,
 			&entry.StartTime,
 			&entry.EndTime,
-			&entry.Duration,
+			&durationSeconds,
 			&entry.CreatedAt,
 			&projectID2,
 			&projectName,
@@ -435,6 +442,12 @@ func (r *TimeEntryImpl) scanTimeEntriesWithPauses(rows *sql.Rows) ([]TimeEntryWi
 		)
 		if err != nil {
 			return nil, err
+		}
+
+		// Convert duration from seconds to time.Duration
+		if durationSeconds != nil {
+			duration := time.Duration(*durationSeconds) * time.Second
+			entry.Duration = &duration
 		}
 
 		// Set project information
@@ -512,4 +525,126 @@ func (r *TimeEntryImpl) scanTimeEntries(rows *sql.Rows) ([]model.TimeEntry, erro
 	}
 
 	return entries, rows.Err()
+}
+
+// GetTotalTimeByProjectIDOrName retrieves the total tracked time for a project by ID (if numeric) or name
+func (r *TimeEntryImpl) GetTotalTimeByProjectIDOrName(ctx context.Context, projectIDOrName string, since *time.Time) (time.Duration, error) {
+	// Try to parse as integer first
+	if projectID, err := strconv.Atoi(projectIDOrName); err == nil {
+		// It's a numeric ID
+		return r.GetTotalTimeByProject(ctx, projectID, since)
+	}
+
+	// It's a name
+	return r.GetTotalTimeByProjectName(ctx, projectIDOrName, since)
+}
+
+// GetTotalTimeByProject retrieves the total tracked time for a specific project
+func (r *TimeEntryImpl) GetTotalTimeByProject(ctx context.Context, projectID int, since *time.Time) (time.Duration, error) {
+	query := `
+		SELECT COALESCE(SUM(te.duration + COALESCE(pause_stats.total_pause_time, 0)), 0) as total_time
+		FROM time_entries te
+		LEFT JOIN (
+			SELECT time_entry_id, 
+			       SUM(COALESCE(duration, 0)) as total_pause_time
+			FROM pauses 
+			WHERE pause_end IS NOT NULL
+			GROUP BY time_entry_id
+		) pause_stats ON te.id = pause_stats.time_entry_id
+		WHERE te.project_id = ? AND te.end_time IS NOT NULL`
+
+	args := []interface{}{projectID}
+
+	if since != nil {
+		query += ` AND te.start_time >= ?`
+		args = append(args, *since)
+	}
+
+	query += `;`
+
+	var totalTimeSeconds int64
+	err := r.db.QueryRowContext(ctx, query, args...).Scan(&totalTimeSeconds)
+	if err != nil {
+		return 0, err
+	}
+
+	return time.Duration(totalTimeSeconds) * time.Second, nil
+}
+
+// GetTotalTimeByProjectName retrieves the total tracked time for a project by name
+func (r *TimeEntryImpl) GetTotalTimeByProjectName(ctx context.Context, projectName string, since *time.Time) (time.Duration, error) {
+	query := `
+		SELECT COALESCE(SUM(te.duration + COALESCE(pause_stats.total_pause_time, 0)), 0) as total_time
+		FROM time_entries te
+		JOIN projects p ON te.project_id = p.id
+		LEFT JOIN (
+			SELECT time_entry_id, 
+			       SUM(COALESCE(duration, 0)) as total_pause_time
+			FROM pauses 
+			WHERE pause_end IS NOT NULL
+			GROUP BY time_entry_id
+		) pause_stats ON te.id = pause_stats.time_entry_id
+		WHERE p.name = ? AND te.end_time IS NOT NULL`
+
+	args := []interface{}{projectName}
+
+	if since != nil {
+		query += ` AND te.start_time >= ?`
+		args = append(args, *since)
+	}
+
+	query += `;`
+
+	var totalTimeSeconds int64
+	err := r.db.QueryRowContext(ctx, query, args...).Scan(&totalTimeSeconds)
+	if err != nil {
+		return 0, err
+	}
+
+	return time.Duration(totalTimeSeconds) * time.Second, nil
+}
+
+// GetAllWithPauses retrieves all time entries with pause information across all projects
+func (r *TimeEntryImpl) GetAllWithPauses(ctx context.Context, limit int, sortOrder string, since *time.Time) ([]TimeEntryWithPauses, error) {
+	query := `
+		SELECT te.id, te.project_id, te.start_time, te.end_time, te.duration, te.created_at,
+		       p.id, p.name, p.created_at,
+		       COALESCE(pause_stats.pause_count, 0) as pause_count,
+		       COALESCE(pause_stats.total_pause_time, 0) as total_pause_time
+		FROM time_entries te
+		JOIN projects p ON te.project_id = p.id
+		LEFT JOIN (
+			SELECT time_entry_id,
+			       COUNT(*) as pause_count,
+			       SUM(COALESCE(duration, 0)) as total_pause_time
+			FROM pauses
+			WHERE pause_end IS NOT NULL
+			GROUP BY time_entry_id
+		) pause_stats ON te.id = pause_stats.time_entry_id`
+
+	args := []interface{}{}
+
+	if since != nil {
+		query += ` WHERE te.start_time >= ?`
+		args = append(args, *since)
+	}
+
+	// Add sorting
+	if sortOrder == "asc" {
+		query += ` ORDER BY te.start_time ASC`
+	} else {
+		query += ` ORDER BY te.start_time DESC`
+	}
+
+	// Add limit
+	query += ` LIMIT ?`
+	args = append(args, limit)
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	return r.scanTimeEntriesWithPauses(rows)
 }

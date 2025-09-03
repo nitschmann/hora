@@ -18,12 +18,13 @@ type TimeTracking interface {
 	GetEntries(ctx context.Context, limit int) ([]model.TimeEntry, error)
 	GetEntriesForProject(ctx context.Context, projectIDOrName string, limit int, sortOrder string) ([]model.TimeEntry, error)
 	GetEntriesForProjectWithPauses(ctx context.Context, projectIDOrName string, limit int, sortOrder string, since *time.Time) ([]repository.TimeEntryWithPauses, error)
+	GetAllEntriesWithPauses(ctx context.Context, limit int, sortOrder string, since *time.Time) ([]repository.TimeEntryWithPauses, error)
+	GetTotalTimeForProject(ctx context.Context, projectIDOrName string, since *time.Time) (time.Duration, error)
 	ClearAllData(ctx context.Context) error
 	GetProjects(ctx context.Context) ([]model.Project, error)
 	GetOrCreateProject(ctx context.Context, name string) (*model.Project, error)
 	GetProjectByIDOrName(ctx context.Context, idOrName string) (*model.Project, error)
-	RemoveProject(ctx context.Context, name string) error
-	RemoveProjectByIDOrName(ctx context.Context, idOrName string) error
+	RemoveProject(ctx context.Context, idOrName string) error
 	PauseTracking(ctx context.Context) error
 	ContinueTracking(ctx context.Context) error
 	FormatDuration(duration time.Duration) string
@@ -69,6 +70,16 @@ func (s *timeTracking) GetEntriesForProjectWithPauses(ctx context.Context, proje
 	return s.db.GetEntriesForProjectWithPauses(ctx, projectIDOrName, limit, sortOrder, since)
 }
 
+// GetAllEntriesWithPauses returns all time entries with pause information across all projects
+func (s *timeTracking) GetAllEntriesWithPauses(ctx context.Context, limit int, sortOrder string, since *time.Time) ([]repository.TimeEntryWithPauses, error) {
+	return s.db.GetAllEntriesWithPauses(ctx, limit, sortOrder, since)
+}
+
+// GetTotalTimeForProject returns the total tracked time for a project by ID (if numeric) or name
+func (s *timeTracking) GetTotalTimeForProject(ctx context.Context, projectIDOrName string, since *time.Time) (time.Duration, error) {
+	return s.db.GetTotalTimeForProject(ctx, projectIDOrName, since)
+}
+
 // ClearAllData removes all time entries and projects from the database
 func (s *timeTracking) ClearAllData(ctx context.Context) error {
 	return s.db.ClearAllEntries(ctx)
@@ -89,13 +100,8 @@ func (s *timeTracking) GetProjectByIDOrName(ctx context.Context, idOrName string
 	return s.db.GetProjectByIDOrName(ctx, idOrName)
 }
 
-// RemoveProject removes a project and all its time entries
-func (s *timeTracking) RemoveProject(ctx context.Context, name string) error {
-	return s.db.RemoveProject(ctx, name)
-}
-
-// RemoveProjectByIDOrName removes a project by ID (if numeric) or name and all its time entries
-func (s *timeTracking) RemoveProjectByIDOrName(ctx context.Context, idOrName string) error {
+// RemoveProject removes a project by ID (if numeric) or name and all its time entries
+func (s *timeTracking) RemoveProject(ctx context.Context, idOrName string) error {
 	return s.db.RemoveProjectByIDOrName(ctx, idOrName)
 }
 

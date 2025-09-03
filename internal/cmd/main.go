@@ -35,9 +35,9 @@ func NewRootCmd() *cobra.Command {
 			return nil
 		},
 		PersistentPostRun: func(cmd *cobra.Command, args []string) {
-			if db != nil {
-				db.Close()
-			}
+			// if db != nil {
+			// 	db.Close()
+			// }
 		},
 	}
 
@@ -46,8 +46,10 @@ func NewRootCmd() *cobra.Command {
 	rootCmd.AddCommand(NewPauseCmd())
 	rootCmd.AddCommand(NewContinueCmd())
 	rootCmd.AddCommand(NewStatusCmd())
+	rootCmd.AddCommand(NewTimesCmd())
 	rootCmd.AddCommand(NewDeleteAllCmd())
 	rootCmd.AddCommand(NewProjectCmd())
+	rootCmd.AddCommand(NewLogsCmd())
 
 	return rootCmd
 }

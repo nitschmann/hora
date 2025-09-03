@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewProjectTimesCmd() *cobra.Command {
+func NewTimesCmd() *cobra.Command {
 	var (
 		limit int
 		sort  string
@@ -16,21 +16,12 @@ func NewProjectTimesCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:     "times [PROJECT_ID_OR_NAME]",
-		Aliases: []string{"t"},
-		Short:   "List time entries for a specific project",
-		Long:    `List all time entries for a specific project, showing start time, end time, and duration. You can specify either the project ID (numeric) or name.`,
-		Args:    cobra.ExactArgs(1),
+		Use:   "times",
+		Short: "List all time entries across all projects",
+		Long:  `List all time entries across all projects, showing start time, end time, duration, and project information.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			projectIDOrName := args[0]
 
-			// Validate sort order
-			if sort != "asc" && sort != "desc" {
-				return fmt.Errorf("sort order must be 'asc' or 'desc', got: %s", sort)
-			}
-
-			// Parse since date if provided
 			var sinceTime *time.Time
 			if since != "" {
 				parsedTime, err := time.Parse("2006-01-02", since)
@@ -40,34 +31,26 @@ func NewProjectTimesCmd() *cobra.Command {
 				sinceTime = &parsedTime
 			}
 
-			// First check if the project exists
-			project, err := timeService.GetProjectByIDOrName(ctx, projectIDOrName)
-			if err != nil {
-				return fmt.Errorf("failed to get project: %w", err)
-			}
-
-			// Get time entries with pause information for the project
-			entries, err := timeService.GetEntriesForProjectWithPauses(ctx, projectIDOrName, limit, sort, sinceTime)
+			// Get all time entries across all projects
+			entries, err := timeService.GetAllEntriesWithPauses(ctx, limit, sort, sinceTime)
 			if err != nil {
 				return fmt.Errorf("failed to get time entries: %w", err)
 			}
 
 			if len(entries) == 0 {
-				fmt.Printf("No time entries found for project '%s'.\n", project.Name)
+				fmt.Println("No time entries found.")
 				return nil
 			}
 
 			// Create table
 			table := tablewriter.NewTable(cmd.OutOrStdout())
-			table.Header("Start Time", "End Time", "Duration", "Pauses", "Pause Time", "Effective Work Time")
+			table.Header("Start Time", "End Time", "Project", "Duration", "Pauses", "Pause Time", "Effective Work Time")
 
 			// Add rows
 			for _, entry := range entries {
 				startStr := entry.StartTime.Format("2006-01-02 15:04:05")
 
-				var endStr string
-				var durationStr string
-
+				var endStr, durationStr string
 				if entry.EndTime != nil {
 					endStr = entry.EndTime.Format("2006-01-02 15:04:05")
 					if entry.Duration != nil {
@@ -88,7 +71,7 @@ func NewProjectTimesCmd() *cobra.Command {
 					pauseTimeStr = "-"
 				}
 
-				// Calculate and format net working time (duration - pause time)
+				// Calculate and format effective work time (duration - pause time)
 				var effectiveWorkTimeStr string
 				if entry.EndTime != nil && entry.Duration != nil {
 					effectiveWorkTimeStr = timeService.FormatDuration(*entry.Duration)
@@ -99,6 +82,7 @@ func NewProjectTimesCmd() *cobra.Command {
 				table.Append([]string{
 					startStr,
 					endStr,
+					entry.Project.Name,
 					durationStr,
 					pauseCountStr,
 					pauseTimeStr,

@@ -243,6 +243,16 @@ func (d *SQLiteDatabase) GetEntriesForProjectWithPauses(ctx context.Context, pro
 	return d.timeEntryRepository.GetByProjectIDOrNameWithPauses(ctx, projectIDOrName, limit, sortOrder, since)
 }
 
+// GetAllEntriesWithPauses retrieves all time entries with pause information across all projects
+func (d *SQLiteDatabase) GetAllEntriesWithPauses(ctx context.Context, limit int, sortOrder string, since *time.Time) ([]repository.TimeEntryWithPauses, error) {
+	return d.timeEntryRepository.GetAllWithPauses(ctx, limit, sortOrder, since)
+}
+
+// GetTotalTimeForProject retrieves the total tracked time for a project by ID (if numeric) or name
+func (d *SQLiteDatabase) GetTotalTimeForProject(ctx context.Context, projectIDOrName string, since *time.Time) (time.Duration, error) {
+	return d.timeEntryRepository.GetTotalTimeByProjectIDOrName(ctx, projectIDOrName, since)
+}
+
 // Data management methods
 
 // ClearAllEntries removes all time entries and projects from the database

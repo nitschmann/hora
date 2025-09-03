@@ -27,6 +27,8 @@ type Database interface {
 	GetEntries(ctx context.Context, limit int) ([]model.TimeEntry, error)
 	GetEntriesForProject(ctx context.Context, projectIDOrName string, limit int, sortOrder string) ([]model.TimeEntry, error)
 	GetEntriesForProjectWithPauses(ctx context.Context, projectIDOrName string, limit int, sortOrder string, since *time.Time) ([]repository.TimeEntryWithPauses, error)
+	GetAllEntriesWithPauses(ctx context.Context, limit int, sortOrder string, since *time.Time) ([]repository.TimeEntryWithPauses, error)
+	GetTotalTimeForProject(ctx context.Context, projectIDOrName string, since *time.Time) (time.Duration, error)
 
 	// Data management
 	ClearAllEntries(ctx context.Context) error
