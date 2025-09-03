@@ -35,7 +35,7 @@ func Daemonize() {
 		}
 
 		// TODO: Remove this logging to stdout once stable
-		fmt.Println("Daemon started with PID", pid)
+		fmt.Println("Background daemon started with PID", pid)
 
 		os.Exit(0)
 	}
@@ -51,7 +51,9 @@ func Stop() error {
 	return stopDaemon(pidFile)
 }
 
+// IsRunning checks if the background tracker daemon is currently running
 func IsRunning() bool {
+	// only supported on macOS for now
 	if runtime.GOOS != "darwin" {
 		return false
 	}
@@ -88,4 +90,3 @@ func stopDaemon(pidFile string) error {
 	Logger().Info("Daemon stopped", "pid", pid)
 	return nil
 }
-

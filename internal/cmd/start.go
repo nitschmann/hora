@@ -58,25 +58,20 @@ func NewStartCmd() *cobra.Command {
 
 			err := timeService.StartTracking(ctx, project, force)
 			if err != nil {
-				if backgroundtracker.IsRunning() {
-					bErr := backgroundtracker.Stop()
-					if bErr != nil {
-						fmt.Printf("Warning: Failed to stop existing background tracker: %v\n", bErr)
-					}
-				}
 				return err
 			}
 
 			fmt.Printf("Started tracking time for project: %s\n", project)
 
+			// Set up the time tracking service for screen lock integration
+			backgroundtracker.SetTimeTrackingService(timeService)
 			backgroundtracker.Start()
 
 			return nil
 		},
 	}
 
-	cmd.Flags().StringVarP(&project, "project", "p", "", "Project name to track time for")
-	cmd.Flags().BoolVarP(&force, "force", "f", false, "Stop any existing session and start a new one")
+	cmd.Flags().BoolVarP(&force, "force", "f", false, "Stop any existing tracking session and start a new one")
 
 	return cmd
 }

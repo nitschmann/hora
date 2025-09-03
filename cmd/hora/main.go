@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/nitschmann/hora/internal/backgroundtracker"
 	"github.com/nitschmann/hora/internal/cmd"
 )
 
@@ -15,7 +16,16 @@ func main() {
 	ctx := context.Background()
 
 	rootCmd := cmd.NewRootCmd()
-	if err := rootCmd.ExecuteContext(ctx); err != nil {
+	err := rootCmd.ExecuteContext(ctx)
+	if err != nil {
+		// check if background tracker is running and stop it
+		if backgroundtracker.IsRunning() {
+			err := backgroundtracker.Stop()
+			if err != nil {
+				log.Printf("Warning: Failed to stop background tracker: %v\n", err)
+			}
+		}
+
 		log.Fatal(err)
 		os.Exit(1)
 	}

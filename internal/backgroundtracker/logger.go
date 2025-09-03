@@ -40,6 +40,7 @@ func initLogger() {
 		return
 	}
 
+	// fallback to stderr/text logging on other systems
 	handler := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo})
 	logger = slog.New(handler)
 }
