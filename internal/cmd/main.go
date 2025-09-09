@@ -7,16 +7,9 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/nitschmann/hora/internal/config"
-	"github.com/nitschmann/hora/internal/database"
-	"github.com/nitschmann/hora/internal/repository"
-	"github.com/nitschmann/hora/internal/service"
 )
 
-var (
-	conf        *config.Config
-	dbConn      *database.Connection
-	timeService service.TimeTracking
-)
+var conf *config.Config
 
 func NewRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
@@ -38,17 +31,10 @@ func NewRootCmd() *cobra.Command {
 				return fmt.Errorf("failed to load config: %w", err)
 			}
 
-			dbConn, err = database.NewConnection(conf)
+			err = initDatabaseConnectionAndService()
 			if err != nil {
-				return fmt.Errorf("failed to initialize database: %w", err)
+				return fmt.Errorf("failed to initialize database and service in daemon: %w", err)
 			}
-
-			// set up repositories
-			projectRepo := repository.NewProject(dbConn.GetDB())
-			timeEntryRepo := repository.NewTimeEntry(dbConn.GetDB())
-			pauseRepo := repository.NewPause(dbConn.GetDB())
-
-			timeService = service.NewTimeTracking(projectRepo, timeEntryRepo, pauseRepo)
 
 			return nil
 		},

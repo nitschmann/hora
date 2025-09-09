@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"strconv"
 	"syscall"
+	"time"
 )
 
 var pidFile = filepath.Join(os.TempDir(), "hora-backgroundtracker.pid")
@@ -33,9 +34,6 @@ func Daemonize() {
 			Logger().Error("Failed to write PID file", "err", err)
 			os.Exit(1)
 		}
-
-		// TODO: Remove this logging to stdout once stable
-		fmt.Println("Background daemon started with PID", pid)
 
 		os.Exit(0)
 	}
@@ -86,7 +84,17 @@ func stopDaemon(pidFile string) error {
 		return fmt.Errorf("failed to kill process %d: %w", pid, err)
 	}
 
+	// Wait until the daemon removes its PID file (graceful shutdown)
+	const maxWait = 2 // seconds
+	for i := 0; i < maxWait*10; i++ {
+		if _, err := os.Stat(pidFile); os.IsNotExist(err) {
+			Logger().Info("Daemon stopped cleanly", "pid", pid)
+			return nil
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+
 	_ = os.Remove(pidFile)
-	Logger().Info("Daemon stopped", "pid", pid)
+	Logger().Warn("Daemon did not clean up PID file, removed manually", "pid", pid)
 	return nil
 }

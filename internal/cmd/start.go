@@ -7,13 +7,13 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/nitschmann/hora/internal/backgroundtracker"
-	"github.com/nitschmann/hora/internal/database"
-	"github.com/nitschmann/hora/internal/repository"
-	"github.com/nitschmann/hora/internal/service"
 )
 
 func NewStartCmd() *cobra.Command {
-	var force bool
+	var (
+		force                 bool
+		skipBackgroundTracker bool
+	)
 
 	cmd := &cobra.Command{
 		Use:     "start [project]",
@@ -24,8 +24,9 @@ func NewStartCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			project := args[0]
+			useBackgroundTracker := conf.UseBackgroundTracker && !skipBackgroundTracker
 
-			if conf.UseBackgroundTracker {
+			if useBackgroundTracker {
 				if backgroundtracker.IsRunning() {
 					activeEntry, err := timeService.GetActiveEntry(ctx)
 					if err == nil && activeEntry != nil {
@@ -35,6 +36,7 @@ func NewStartCmd() *cobra.Command {
 								activeEntry.Project.Name,
 							)
 						}
+
 						if err := backgroundtracker.Stop(); err != nil {
 							return fmt.Errorf("failed to stop existing daemon: %w", err)
 						}
@@ -43,8 +45,9 @@ func NewStartCmd() *cobra.Command {
 
 				// Close parent database connection before forking
 				if dbConn != nil {
-					dbConn.Close()
+					_ = dbConn.Close()
 					dbConn = nil
+					timeService = nil
 				}
 
 				backgroundtracker.Daemonize()
@@ -55,19 +58,10 @@ func NewStartCmd() *cobra.Command {
 					return nil
 				}
 
-				// Daemon process: reinitialize database connection
-				var err error
-				dbConn, err = database.NewConnection(conf)
+				err := initDatabaseConnectionAndService()
 				if err != nil {
-					return fmt.Errorf("failed to initialize database in daemon: %w", err)
+					return fmt.Errorf("failed to initialize database and service in daemon: %w", err)
 				}
-
-				// Create repositories for daemon
-				projectRepo := repository.NewProject(dbConn.GetDB())
-				timeEntryRepo := repository.NewTimeEntry(dbConn.GetDB())
-				pauseRepo := repository.NewPause(dbConn.GetDB())
-
-				timeService = service.NewTimeTracking(projectRepo, timeEntryRepo, pauseRepo)
 			}
 
 			// --- only daemon process reaches this point ---
@@ -78,7 +72,7 @@ func NewStartCmd() *cobra.Command {
 
 			fmt.Printf("Started tracking time for project: %s\n", project)
 
-			if conf.UseBackgroundTracker {
+			if useBackgroundTracker {
 				backgroundtracker.SetTimeTrackingService(timeService)
 				backgroundtracker.Start()
 			}
@@ -88,6 +82,7 @@ func NewStartCmd() *cobra.Command {
 	}
 
 	cmd.Flags().BoolVarP(&force, "force", "f", false, "Stop any existing tracking session and start a new one")
+	cmd.Flags().BoolVar(&skipBackgroundTracker, "skip-background-tracker", false, "Skip starting the background tracker")
 
 	return cmd
 }

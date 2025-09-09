@@ -22,7 +22,6 @@ func NewStopCmd() *cobra.Command {
 			}
 
 			durationStr := timeService.FormatDuration(*entry.Duration)
-
 			fmt.Printf("Stopped tracking time for project: %s\n", entry.Project.Name)
 			fmt.Printf("Duration: %s\n", durationStr)
 
