@@ -13,6 +13,7 @@ func NewStartCmd() *cobra.Command {
 	var (
 		force                 bool
 		skipBackgroundTracker bool
+		category              string
 	)
 
 	cmd := &cobra.Command{
@@ -25,6 +26,15 @@ func NewStartCmd() *cobra.Command {
 			ctx := cmd.Context()
 			project := args[0]
 			useBackgroundTracker := conf.UseBackgroundTracker && !skipBackgroundTracker
+
+			// Validate category if provided
+			var categoryPtr *string
+			if category != "" {
+				if err := validateCategory(category); err != nil {
+					return fmt.Errorf("invalid category: %w", err)
+				}
+				categoryPtr = &category
+			}
 
 			if useBackgroundTracker {
 				if backgroundtracker.IsRunning() {
@@ -65,7 +75,7 @@ func NewStartCmd() *cobra.Command {
 			}
 
 			// --- only daemon process reaches this point ---
-			err := timeService.StartTracking(ctx, project, force)
+			err := timeService.StartTracking(ctx, project, force, categoryPtr)
 			if err != nil {
 				return err
 			}
@@ -83,6 +93,7 @@ func NewStartCmd() *cobra.Command {
 
 	cmd.Flags().BoolVarP(&force, "force", "f", false, "Stop any existing tracking session and start a new one")
 	cmd.Flags().BoolVar(&skipBackgroundTracker, "skip-background-tracker", false, "Skip starting the background tracker")
+	cmd.Flags().StringVarP(&category, "category", "k", "", "Category for this time entry (alphanumeric, underscore, hyphen only). Avoid shell special characters like ! $ ` \\")
 
 	return cmd
 }

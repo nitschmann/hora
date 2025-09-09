@@ -11,13 +11,14 @@ import (
 
 // TimeTracking defines the interface for time tracking operations
 type TimeTracking interface {
-	StartTracking(ctx context.Context, projectName string, force bool) error
+	StartTracking(ctx context.Context, projectName string, force bool, category *string) error
 	StopTracking(ctx context.Context) (*model.TimeEntry, error)
 	GetActiveEntry(ctx context.Context) (*model.TimeEntry, error)
 	GetEntries(ctx context.Context, limit int) ([]model.TimeEntry, error)
 	GetEntriesForProject(ctx context.Context, projectIDOrName string, limit int, sortOrder string) ([]model.TimeEntry, error)
 	GetEntriesForProjectWithPauses(ctx context.Context, projectIDOrName string, limit int, sortOrder string, since *time.Time) ([]repository.TimeEntryWithPauses, error)
 	GetAllEntriesWithPauses(ctx context.Context, limit int, sortOrder string, since *time.Time) ([]repository.TimeEntryWithPauses, error)
+	GetAllEntriesWithPausesByCategory(ctx context.Context, limit int, sortOrder string, since *time.Time, category *string) ([]repository.TimeEntryWithPauses, error)
 	GetTotalTimeForProject(ctx context.Context, projectIDOrName string, since *time.Time) (time.Duration, error)
 	ClearAllData(ctx context.Context) error
 	GetProjects(ctx context.Context) ([]model.Project, error)
@@ -46,7 +47,7 @@ func NewTimeTracking(projectRepo repository.Project, timeEntryRepo repository.Ti
 }
 
 // StartTracking starts a new time tracking session for the given project
-func (s *timeTracking) StartTracking(ctx context.Context, projectName string, force bool) error {
+func (s *timeTracking) StartTracking(ctx context.Context, projectName string, force bool, category *string) error {
 	// Check for active entry if not forcing
 	if !force {
 		activeEntry, err := s.timeEntryRepo.GetActive(ctx)
@@ -67,7 +68,7 @@ func (s *timeTracking) StartTracking(ctx context.Context, projectName string, fo
 	}
 
 	// Create new time entry
-	_, err = s.timeEntryRepo.Create(ctx, proj.ID, time.Now())
+	_, err = s.timeEntryRepo.Create(ctx, proj.ID, time.Now(), category)
 	if err != nil {
 		return fmt.Errorf("failed to create time entry: %w", err)
 	}
@@ -151,6 +152,11 @@ func (s *timeTracking) GetEntriesForProjectWithPauses(ctx context.Context, proje
 // GetAllEntriesWithPauses returns all time entries with pause information across all projects
 func (s *timeTracking) GetAllEntriesWithPauses(ctx context.Context, limit int, sortOrder string, since *time.Time) ([]repository.TimeEntryWithPauses, error) {
 	return s.timeEntryRepo.GetAllWithPauses(ctx, limit, sortOrder, since)
+}
+
+// GetAllEntriesWithPausesByCategory returns all time entries with pause information across all projects filtered by category
+func (s *timeTracking) GetAllEntriesWithPausesByCategory(ctx context.Context, limit int, sortOrder string, since *time.Time, category *string) ([]repository.TimeEntryWithPauses, error) {
+	return s.timeEntryRepo.GetAllWithPausesByCategory(ctx, limit, sortOrder, since, category)
 }
 
 // GetTotalTimeForProject returns the total tracked time for a project by ID (if numeric) or name

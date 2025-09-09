@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/doug-martin/goqu/v9"
+
 	"github.com/nitschmann/hora/internal/model"
 )
 
@@ -14,25 +15,18 @@ import (
 type Project interface {
 	// Create creates a new project
 	Create(ctx context.Context, name string) (*model.Project, error)
-
 	// GetByID retrieves a project by its ID
 	GetByID(ctx context.Context, id int) (*model.Project, error)
-
 	// GetByName retrieves a project by its name
 	GetByName(ctx context.Context, name string) (*model.Project, error)
-
 	// GetOrCreate retrieves a project by name, or creates it if it doesn't exist
 	GetOrCreate(ctx context.Context, name string) (*model.Project, error)
-
 	// GetAll retrieves all projects with their last tracked time
 	GetAll(ctx context.Context) ([]model.Project, error)
-
 	// Delete deletes a project by name
 	Delete(ctx context.Context, name string) error
-
 	// DeleteByID deletes a project by ID
 	DeleteByID(ctx context.Context, id int) error
-
 	// GetByIDOrName retrieves a project by ID (if numeric) or name
 	GetByIDOrName(ctx context.Context, idOrName string) (*model.Project, error)
 }
@@ -216,12 +210,9 @@ func (r *project) DeleteByID(ctx context.Context, id int) error {
 
 // GetByIDOrName retrieves a project by ID (if numeric) or name
 func (r *project) GetByIDOrName(ctx context.Context, idOrName string) (*model.Project, error) {
-	// Try to parse as integer first
 	if id, err := strconv.Atoi(idOrName); err == nil {
-		// It's a numeric ID
 		return r.GetByID(ctx, id)
 	}
 
-	// It's a name
 	return r.GetByName(ctx, idOrName)
 }

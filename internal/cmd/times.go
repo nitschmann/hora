@@ -6,12 +6,15 @@ import (
 
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
+
+	"github.com/nitschmann/hora/internal/repository"
 )
 
 func NewTimesCmd() *cobra.Command {
 	var (
-		since string
-		sort  string
+		category string
+		since    string
+		sort     string
 	)
 
 	cmd := &cobra.Command{
@@ -40,8 +43,22 @@ func NewTimesCmd() *cobra.Command {
 				sinceTime = &parsedTime
 			}
 
+			// Validate category if provided
+			var categoryPtr *string
+			if category != "" {
+				if err := validateCategory(category); err != nil {
+					return fmt.Errorf("invalid category: %w", err)
+				}
+				categoryPtr = &category
+			}
+
 			// Get all time entries across all projects
-			entries, err := timeService.GetAllEntriesWithPauses(ctx, limit, sort, sinceTime)
+			var entries []repository.TimeEntryWithPauses
+			if categoryPtr != nil {
+				entries, err = timeService.GetAllEntriesWithPausesByCategory(ctx, limit, sort, sinceTime, categoryPtr)
+			} else {
+				entries, err = timeService.GetAllEntriesWithPauses(ctx, limit, sort, sinceTime)
+			}
 			if err != nil {
 				return fmt.Errorf("failed to get time entries: %w", err)
 			}
@@ -53,7 +70,7 @@ func NewTimesCmd() *cobra.Command {
 
 			// Create table
 			table := tablewriter.NewTable(cmd.OutOrStdout())
-			table.Header("Start Time", "End Time", "Project", "Duration", "Pauses", "Pause Time", "Effective Work Time")
+			table.Header("Start Time", "End Time", "Project", "Category", "Duration", "Pauses", "Pause Time", "Effective Work Time")
 
 			// Add rows
 			for _, entry := range entries {
@@ -87,10 +104,19 @@ func NewTimesCmd() *cobra.Command {
 					effectiveWorkTimeStr = "In progress"
 				}
 
+				// Format category
+				var categoryStr string
+				if entry.Category != nil {
+					categoryStr = *entry.Category
+				} else {
+					categoryStr = "-"
+				}
+
 				table.Append([]string{
 					startStr,
 					endStr,
 					entry.Project.Name,
+					categoryStr,
 					durationStr,
 					pauseCountStr,
 					pauseTimeStr,
@@ -104,6 +130,7 @@ func NewTimesCmd() *cobra.Command {
 		},
 	}
 
+	cmd.Flags().StringVar(&category, "category", "", "Filter by category (avoid shell special characters like ! $ ` \\")
 	cmd.Flags().IntP("limit", "l", 50, "Maximum number of entries to show")
 	cmd.Flags().StringVar(&since, "since", "", "Only show entries since this date (YYYY-MM-DD format)")
 	cmd.Flags().StringVarP(&sort, "sort", "s", "desc", "Sort order: 'asc' (oldest first) or 'desc' (newest first)")

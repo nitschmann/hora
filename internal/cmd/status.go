@@ -30,6 +30,9 @@ func NewStatusCmd() *cobra.Command {
 
 			fmt.Printf("Active session:\n\n")
 			fmt.Printf("Project: %s\n", activeEntry.Project.Name)
+			if activeEntry.Category != nil {
+				fmt.Printf("Category: %s\n", *activeEntry.Category)
+			}
 			fmt.Printf("Started: %s\n", formatTimeInLocal(activeEntry.StartTime))
 			fmt.Printf("Duration: %s\n", durationStr)
 

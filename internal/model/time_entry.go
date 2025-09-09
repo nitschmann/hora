@@ -10,5 +10,6 @@ type TimeEntry struct {
 	StartTime time.Time      `json:"start_time" db:"start_time"`
 	EndTime   *time.Time     `json:"end_time,omitempty" db:"end_time"`
 	Duration  *time.Duration `json:"duration,omitempty" db:"duration"`
+	Category  *string        `json:"category,omitempty" db:"category"`
 	CreatedAt time.Time      `json:"created_at" db:"created_at"`
 }

@@ -54,7 +54,7 @@ func NewProjectTimesCmd() *cobra.Command {
 			}
 
 			table := tablewriter.NewTable(cmd.OutOrStdout())
-			table.Header("Start Time", "End Time", "Duration", "Pauses", "Pause Time", "Effective Work Time")
+			table.Header("Start Time", "End Time", "Category", "Duration", "Pauses", "Pause Time", "Effective Work Time")
 
 			// Add rows
 			for _, entry := range entries {
@@ -90,9 +90,18 @@ func NewProjectTimesCmd() *cobra.Command {
 					effectiveWorkTimeStr = "In progress"
 				}
 
+				// Format category
+				var categoryStr string
+				if entry.Category != nil {
+					categoryStr = *entry.Category
+				} else {
+					categoryStr = "-"
+				}
+
 				table.Append([]string{
 					startStr,
 					endStr,
+					categoryStr,
 					durationStr,
 					pauseCountStr,
 					pauseTimeStr,

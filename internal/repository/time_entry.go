@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/doug-martin/goqu/v9"
+
 	"github.com/nitschmann/hora/internal/model"
 )
 
@@ -20,44 +21,33 @@ type TimeEntryWithPauses struct {
 // TimeEntry defines the interface for time entry data operations
 type TimeEntry interface {
 	// Create creates a new time entry
-	Create(ctx context.Context, projectID int, startTime time.Time) (*model.TimeEntry, error)
-
+	Create(ctx context.Context, projectID int, startTime time.Time, category *string) (*model.TimeEntry, error)
 	// GetByID retrieves a time entry by its ID
 	GetByID(ctx context.Context, id int) (*model.TimeEntry, error)
-
 	// GetActive retrieves the currently active time entry
 	GetActive(ctx context.Context) (*model.TimeEntry, error)
-
 	// UpdateEndTime updates the end time and duration of a time entry
 	UpdateEndTime(ctx context.Context, id int, endTime time.Time, duration time.Duration) error
-
 	// StopAllActive stops all active time entries by setting their end time
 	StopAllActive(ctx context.Context) error
-
 	// GetByProject retrieves time entries for a specific project
 	GetByProject(ctx context.Context, projectID int, limit int, sortOrder string) ([]model.TimeEntry, error)
-
 	// GetByProjectName retrieves time entries for a project by name
 	GetByProjectName(ctx context.Context, projectName string, limit int, sortOrder string) ([]model.TimeEntry, error)
-
 	// GetByProjectIDOrName retrieves time entries for a project by ID (if numeric) or name
 	GetByProjectIDOrName(ctx context.Context, projectIDOrName string, limit int, sortOrder string) ([]model.TimeEntry, error)
-
 	// GetByProjectIDOrNameWithPauses retrieves time entries with pause information for a project by ID (if numeric) or name
 	GetByProjectIDOrNameWithPauses(ctx context.Context, projectIDOrName string, limit int, sortOrder string, since *time.Time) ([]TimeEntryWithPauses, error)
-
 	// GetTotalTimeByProjectIDOrName retrieves the total tracked time for a project by ID (if numeric) or name
 	GetTotalTimeByProjectIDOrName(ctx context.Context, projectIDOrName string, since *time.Time) (time.Duration, error)
-
 	// GetAllWithPauses retrieves all time entries with pause information across all projects
 	GetAllWithPauses(ctx context.Context, limit int, sortOrder string, since *time.Time) ([]TimeEntryWithPauses, error)
-
+	// GetAllWithPausesByCategory retrieves all time entries with pause information across all projects filtered by category
+	GetAllWithPausesByCategory(ctx context.Context, limit int, sortOrder string, since *time.Time, category *string) ([]TimeEntryWithPauses, error)
 	// GetAll retrieves all time entries with a limit
 	GetAll(ctx context.Context, limit int) ([]model.TimeEntry, error)
-
 	// DeleteByProject deletes all time entries for a specific project
 	DeleteByProject(ctx context.Context, projectID int) error
-
 	// DeleteAll deletes all time entries
 	DeleteAll(ctx context.Context) error
 }
@@ -73,11 +63,17 @@ func NewTimeEntry(db *sql.DB) TimeEntry {
 }
 
 // Create creates a new time entry
-func (r *timeEntry) Create(ctx context.Context, projectID int, startTime time.Time) (*model.TimeEntry, error) {
-	query, args, err := goqu.Insert("time_entries").Rows(goqu.Record{
+func (r *timeEntry) Create(ctx context.Context, projectID int, startTime time.Time, category *string) (*model.TimeEntry, error) {
+	record := goqu.Record{
 		"project_id": projectID,
 		"start_time": startTime,
-	}).ToSQL()
+	}
+
+	if category != nil {
+		record["category"] = *category
+	}
+
+	query, args, err := goqu.Insert("time_entries").Rows(record).ToSQL()
 	if err != nil {
 		return nil, err
 	}
@@ -104,6 +100,7 @@ func (r *timeEntry) GetByID(ctx context.Context, id int) (*model.TimeEntry, erro
 			goqu.I("te.start_time"),
 			goqu.I("te.end_time"),
 			goqu.I("te.duration"),
+			goqu.I("te.category"),
 			goqu.I("te.created_at"),
 			goqu.I("p.id").As("project_id2"),
 			goqu.I("p.name").As("project_name"),
@@ -119,6 +116,7 @@ func (r *timeEntry) GetByID(ctx context.Context, id int) (*model.TimeEntry, erro
 	var entry model.TimeEntry
 	var endTime *time.Time
 	var duration *int64
+	var category *string
 	var project model.Project
 
 	err = r.db.QueryRowContext(ctx, query, args...).Scan(
@@ -127,6 +125,7 @@ func (r *timeEntry) GetByID(ctx context.Context, id int) (*model.TimeEntry, erro
 		&entry.StartTime,
 		&endTime,
 		&duration,
+		&category,
 		&entry.CreatedAt,
 		&project.ID,
 		&project.Name,
@@ -141,6 +140,7 @@ func (r *timeEntry) GetByID(ctx context.Context, id int) (*model.TimeEntry, erro
 		d := time.Duration(*duration) * time.Second
 		entry.Duration = &d
 	}
+	entry.Category = category
 	entry.Project = &project
 
 	return &entry, nil
@@ -155,6 +155,7 @@ func (r *timeEntry) GetActive(ctx context.Context) (*model.TimeEntry, error) {
 			goqu.I("te.start_time"),
 			goqu.I("te.end_time"),
 			goqu.I("te.duration"),
+			goqu.I("te.category"),
 			goqu.I("te.created_at"),
 			goqu.I("p.id").As("project_id2"),
 			goqu.I("p.name").As("project_name"),
@@ -172,6 +173,7 @@ func (r *timeEntry) GetActive(ctx context.Context) (*model.TimeEntry, error) {
 	var entry model.TimeEntry
 	var endTime *time.Time
 	var duration *int64
+	var category *string
 	var project model.Project
 
 	err = r.db.QueryRowContext(ctx, query, args...).Scan(
@@ -180,6 +182,7 @@ func (r *timeEntry) GetActive(ctx context.Context) (*model.TimeEntry, error) {
 		&entry.StartTime,
 		&endTime,
 		&duration,
+		&category,
 		&entry.CreatedAt,
 		&project.ID,
 		&project.Name,
@@ -194,6 +197,7 @@ func (r *timeEntry) GetActive(ctx context.Context) (*model.TimeEntry, error) {
 		d := time.Duration(*duration) * time.Second
 		entry.Duration = &d
 	}
+	entry.Category = category
 	entry.Project = &project
 
 	return &entry, nil
@@ -222,7 +226,7 @@ func (r *timeEntry) StopAllActive(ctx context.Context) error {
 	query, args, err := goqu.Update("time_entries").
 		Set(goqu.Record{
 			"end_time": now,
-			"duration": 0, // Duration will be calculated later
+			"duration": 0, // duration will be calculated later
 		}).
 		Where(goqu.C("end_time").IsNull()).
 		ToSQL()
@@ -252,6 +256,7 @@ func (r *timeEntry) GetByProject(ctx context.Context, projectID int, limit int, 
 			goqu.I("te.start_time"),
 			goqu.I("te.end_time"),
 			goqu.I("te.duration"),
+			goqu.I("te.category"),
 			goqu.I("te.created_at"),
 			goqu.I("p.id").As("project_id2"),
 			goqu.I("p.name").As("project_name"),
@@ -299,6 +304,7 @@ func (r *timeEntry) GetByProjectName(ctx context.Context, projectName string, li
 			goqu.I("te.start_time"),
 			goqu.I("te.end_time"),
 			goqu.I("te.duration"),
+			goqu.I("te.category"),
 			goqu.I("te.created_at"),
 			goqu.I("p.id").As("project_id2"),
 			goqu.I("p.name").As("project_name"),
@@ -332,7 +338,7 @@ func (r *timeEntry) GetAll(ctx context.Context, limit int) ([]model.TimeEntry, e
 	query, args, err := goqu.From("time_entries").
 		Join(goqu.T("projects"), goqu.On(goqu.C("time_entries.project_id").Eq(goqu.C("projects.id")))).
 		Select(
-			"time_entries.id", "time_entries.project_id", "time_entries.start_time", "time_entries.end_time", "time_entries.duration", "time_entries.created_at",
+			"time_entries.id", "time_entries.project_id", "time_entries.start_time", "time_entries.end_time", "time_entries.duration", "time_entries.category", "time_entries.created_at",
 			goqu.C("projects.id").As("project_id2"), goqu.C("projects.name").As("project_name"), goqu.C("projects.created_at").As("project_created_at"),
 		).
 		Order(goqu.C("time_entries.start_time").Desc()).
@@ -353,25 +359,19 @@ func (r *timeEntry) GetAll(ctx context.Context, limit int) ([]model.TimeEntry, e
 
 // GetByProjectIDOrName retrieves time entries for a project by ID (if numeric) or name
 func (r *timeEntry) GetByProjectIDOrName(ctx context.Context, projectIDOrName string, limit int, sortOrder string) ([]model.TimeEntry, error) {
-	// Try to parse as integer first
 	if projectID, err := strconv.Atoi(projectIDOrName); err == nil {
-		// It's a numeric ID
 		return r.GetByProject(ctx, projectID, limit, sortOrder)
 	}
 
-	// It's a name
 	return r.GetByProjectName(ctx, projectIDOrName, limit, sortOrder)
 }
 
 // GetByProjectIDOrNameWithPauses retrieves time entries with pause information for a project by ID (if numeric) or name
 func (r *timeEntry) GetByProjectIDOrNameWithPauses(ctx context.Context, projectIDOrName string, limit int, sortOrder string, since *time.Time) ([]TimeEntryWithPauses, error) {
-	// Try to parse as integer first
 	if projectID, err := strconv.Atoi(projectIDOrName); err == nil {
-		// It's a numeric ID
 		return r.GetByProjectWithPauses(ctx, projectID, limit, sortOrder, since)
 	}
 
-	// It's a name
 	return r.GetByProjectNameWithPauses(ctx, projectIDOrName, limit, sortOrder, since)
 }
 
@@ -397,7 +397,7 @@ func (r *timeEntry) GetByProjectWithPauses(ctx context.Context, projectID int, l
 		Where(goqu.I("pause_end").IsNotNull()).
 		GroupBy(goqu.I("time_entry_id"))
 
-	// Build the main query
+	// main query
 	queryBuilder := goqu.From(goqu.T("time_entries").As("te")).
 		Select(
 			goqu.I("te.id"),
@@ -405,6 +405,7 @@ func (r *timeEntry) GetByProjectWithPauses(ctx context.Context, projectID int, l
 			goqu.I("te.start_time"),
 			goqu.I("te.end_time"),
 			goqu.I("te.duration"),
+			goqu.I("te.category"),
 			goqu.I("te.created_at"),
 			goqu.I("p.id").As("project_id2"),
 			goqu.I("p.name").As("project_name"),
@@ -462,7 +463,7 @@ func (r *timeEntry) GetByProjectNameWithPauses(ctx context.Context, projectName 
 		Where(goqu.I("pause_end").IsNotNull()).
 		GroupBy(goqu.I("time_entry_id"))
 
-	// Build the main query
+	// main query
 	queryBuilder := goqu.From(goqu.T("time_entries").As("te")).
 		Select(
 			goqu.I("te.id"),
@@ -470,6 +471,7 @@ func (r *timeEntry) GetByProjectNameWithPauses(ctx context.Context, projectName 
 			goqu.I("te.start_time"),
 			goqu.I("te.end_time"),
 			goqu.I("te.duration"),
+			goqu.I("te.category"),
 			goqu.I("te.created_at"),
 			goqu.I("p.id").As("project_id2"),
 			goqu.I("p.name").As("project_name"),
@@ -517,6 +519,7 @@ func (r *timeEntry) scanTimeEntriesWithPauses(rows *sql.Rows) ([]TimeEntryWithPa
 		var pauseCount int
 		var totalPauseTimeSeconds int64
 		var durationSeconds *int64
+		var category *string
 
 		err := rows.Scan(
 			&entry.ID,
@@ -524,6 +527,7 @@ func (r *timeEntry) scanTimeEntriesWithPauses(rows *sql.Rows) ([]TimeEntryWithPa
 			&entry.StartTime,
 			&entry.EndTime,
 			&durationSeconds,
+			&category,
 			&entry.CreatedAt,
 			&projectID2,
 			&projectName,
@@ -535,20 +539,19 @@ func (r *timeEntry) scanTimeEntriesWithPauses(rows *sql.Rows) ([]TimeEntryWithPa
 			return nil, err
 		}
 
-		// Convert duration from seconds to time.Duration
 		if durationSeconds != nil {
 			duration := time.Duration(*durationSeconds) * time.Second
 			entry.Duration = &duration
 		}
 
-		// Set project information
+		entry.Category = category
+
 		entry.Project = &model.Project{
 			ID:        projectID2,
 			Name:      projectName,
 			CreatedAt: projectCreatedAt,
 		}
 
-		// Set pause information
 		entry.PauseCount = pauseCount
 		entry.PauseTime = time.Duration(totalPauseTimeSeconds) * time.Second
 
@@ -588,6 +591,7 @@ func (r *timeEntry) scanTimeEntries(rows *sql.Rows) ([]model.TimeEntry, error) {
 		var entry model.TimeEntry
 		var endTime *time.Time
 		var duration *int64
+		var category *string
 		var project model.Project
 
 		err := rows.Scan(
@@ -596,6 +600,7 @@ func (r *timeEntry) scanTimeEntries(rows *sql.Rows) ([]model.TimeEntry, error) {
 			&entry.StartTime,
 			&endTime,
 			&duration,
+			&category,
 			&entry.CreatedAt,
 			&project.ID,
 			&project.Name,
@@ -610,6 +615,7 @@ func (r *timeEntry) scanTimeEntries(rows *sql.Rows) ([]model.TimeEntry, error) {
 			d := time.Duration(*duration) * time.Second
 			entry.Duration = &d
 		}
+		entry.Category = category
 		entry.Project = &project
 
 		entries = append(entries, entry)
@@ -620,19 +626,15 @@ func (r *timeEntry) scanTimeEntries(rows *sql.Rows) ([]model.TimeEntry, error) {
 
 // GetTotalTimeByProjectIDOrName retrieves the total tracked time for a project by ID (if numeric) or name
 func (r *timeEntry) GetTotalTimeByProjectIDOrName(ctx context.Context, projectIDOrName string, since *time.Time) (time.Duration, error) {
-	// Try to parse as integer first
 	if projectID, err := strconv.Atoi(projectIDOrName); err == nil {
-		// It's a numeric ID
 		return r.GetTotalTimeByProject(ctx, projectID, since)
 	}
 
-	// It's a name
 	return r.GetTotalTimeByProjectName(ctx, projectIDOrName, since)
 }
 
 // GetTotalTimeByProject retrieves the total tracked time for a specific project
 func (r *timeEntry) GetTotalTimeByProject(ctx context.Context, projectID int, since *time.Time) (time.Duration, error) {
-	// Build the subquery for pause stats
 	pauseStatsSubquery := goqu.From("pauses").
 		Select(
 			goqu.I("time_entry_id"),
@@ -641,7 +643,7 @@ func (r *timeEntry) GetTotalTimeByProject(ctx context.Context, projectID int, si
 		Where(goqu.I("pause_end").IsNotNull()).
 		GroupBy(goqu.I("time_entry_id"))
 
-	// Build the main query
+	// main query
 	queryBuilder := goqu.From(goqu.T("time_entries").As("te")).
 		Select(
 			goqu.COALESCE(
@@ -675,7 +677,6 @@ func (r *timeEntry) GetTotalTimeByProject(ctx context.Context, projectID int, si
 
 // GetTotalTimeByProjectName retrieves the total tracked time for a project by name
 func (r *timeEntry) GetTotalTimeByProjectName(ctx context.Context, projectName string, since *time.Time) (time.Duration, error) {
-	// Build the subquery for pause stats
 	pauseStatsSubquery := goqu.From("pauses").
 		Select(
 			goqu.I("time_entry_id"),
@@ -684,7 +685,6 @@ func (r *timeEntry) GetTotalTimeByProjectName(ctx context.Context, projectName s
 		Where(goqu.I("pause_end").IsNotNull()).
 		GroupBy(goqu.I("time_entry_id"))
 
-	// Build the main query
 	queryBuilder := goqu.From(goqu.T("time_entries").As("te")).
 		Select(
 			goqu.COALESCE(
@@ -730,7 +730,7 @@ func (r *timeEntry) GetAllWithPauses(ctx context.Context, limit int, sortOrder s
 	}
 
 	query := `
-		SELECT te.id, te.project_id, te.start_time, te.end_time, te.duration, te.created_at,
+		SELECT te.id, te.project_id, te.start_time, te.end_time, te.duration, te.category, te.created_at,
 		       p.id, p.name, p.created_at,
 		       COALESCE(pause_stats.pause_count, 0) as pause_count,
 		       COALESCE(pause_stats.total_pause_time, 0) as total_pause_time
@@ -752,10 +752,74 @@ func (r *timeEntry) GetAllWithPauses(ctx context.Context, limit int, sortOrder s
 		args = append(args, *since)
 	}
 
-	// Add sorting
+	// sorting
 	query += ` ` + orderClause
 
-	// Add limit
+	// limit
+	query += ` LIMIT ?`
+	args = append(args, limit)
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	return r.scanTimeEntriesWithPauses(rows)
+}
+
+// GetAllWithPausesByCategory retrieves all time entries with pause information across all projects filtered by category
+func (r *timeEntry) GetAllWithPausesByCategory(ctx context.Context, limit int, sortOrder string, since *time.Time, category *string) ([]TimeEntryWithPauses, error) {
+	var orderClause string
+	switch sortOrder {
+	case "asc":
+		orderClause = "ORDER BY te.start_time ASC"
+	case "desc":
+		orderClause = "ORDER BY te.start_time DESC"
+	default:
+		orderClause = "ORDER BY te.start_time DESC"
+	}
+
+	query := `
+		SELECT te.id, te.project_id, te.start_time, te.end_time, te.duration, te.category, te.created_at,
+		       p.id, p.name, p.created_at,
+		       COALESCE(pause_stats.pause_count, 0) as pause_count,
+		       COALESCE(pause_stats.total_pause_time, 0) as total_pause_time
+		FROM time_entries te
+		JOIN projects p ON te.project_id = p.id
+		LEFT JOIN (
+			SELECT time_entry_id,
+			       COUNT(*) as pause_count,
+			       SUM(COALESCE(duration, 0)) as total_pause_time
+			FROM pauses
+			WHERE pause_end IS NOT NULL
+			GROUP BY time_entry_id
+		) pause_stats ON te.id = pause_stats.time_entry_id`
+
+	args := []interface{}{}
+	whereClauses := []string{}
+
+	if since != nil {
+		whereClauses = append(whereClauses, "te.start_time >= ?")
+		args = append(args, *since)
+	}
+
+	if category != nil {
+		whereClauses = append(whereClauses, "te.category = ?")
+		args = append(args, *category)
+	}
+
+	if len(whereClauses) > 0 {
+		query += " WHERE " + whereClauses[0]
+		for i := 1; i < len(whereClauses); i++ {
+			query += " AND " + whereClauses[i]
+		}
+	}
+
+	// sorting
+	query += ` ` + orderClause
+
+	// limit
 	query += ` LIMIT ?`
 	args = append(args, limit)
 
