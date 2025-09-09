@@ -57,11 +57,11 @@ func NewTimesCmd() *cobra.Command {
 
 			// Add rows
 			for _, entry := range entries {
-				startStr := entry.StartTime.Format("2006-01-02 15:04:05")
+				startStr := formatTimeInLocal(entry.StartTime)
 
 				var endStr, durationStr string
 				if entry.EndTime != nil {
-					endStr = entry.EndTime.Format("2006-01-02 15:04:05")
+					endStr = formatTimeInLocal(*entry.EndTime)
 					if entry.Duration != nil {
 						totalDuration := *entry.Duration + entry.PauseTime
 						durationStr = timeService.FormatDuration(totalDuration)

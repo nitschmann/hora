@@ -29,11 +29,11 @@ func NewProjectListCmd() *cobra.Command {
 			table.Header("ID", "Name", "Created", "Last Tracked")
 
 			for _, project := range projects {
-				createdStr := project.CreatedAt.Format("2006-01-02 15:04")
+				createdStr := formatTimeInLocalShort(project.CreatedAt)
 
 				var lastTrackedStr string
 				if project.LastTrackedAt != nil {
-					lastTrackedStr = project.LastTrackedAt.Format("2006-01-02 15:04")
+					lastTrackedStr = formatTimeInLocalShort(*project.LastTrackedAt)
 				} else {
 					lastTrackedStr = "Never"
 				}

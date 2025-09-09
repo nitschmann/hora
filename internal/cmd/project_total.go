@@ -46,7 +46,7 @@ func NewProjectTotalCmd() *cobra.Command {
 			table.Header("Project", "Total Time", "Since")
 			formatedSince := ""
 			if sinceTime != nil {
-				formatedSince = sinceTime.Format("2006-01-02")
+				formatedSince = formatDateInLocal(*sinceTime)
 			}
 
 			table.Append([]string{
