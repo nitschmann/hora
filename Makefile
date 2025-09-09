@@ -1,7 +1,25 @@
-.PHONY: build clean test install-dependencies run
+BUILD_DIR := build
+PKG 			:= ./cmd/hora
+
+LINUX_ARCHS := amd64 arm64 386
+DARWIN_ARCHS := amd64 arm64
 
 build:
 	go build -o build/hora ./cmd/hora
+
+build-all: build-darwin build-linux
+
+build-darwin:
+	@for arch in $(DARWIN_ARCHS); do \
+		echo "Building for darwin $$arch..."; \
+		GOOS=darwin GOARCH=$$arch CGO_ENABLED=1 go build -o $(BUILD_DIR)/hora-darwin-$$arch $(PKG); \
+	done
+
+build-linux:
+	@for arch in $(LINUX_ARCHS); do \
+		echo "Building for linux $$arch..."; \
+		GOOS=linux GOARCH=$$arch CGO_ENABLED=0 go build -o $(BUILD_DIR)/hora-linux-$$arch $(PKG); \
+	done
 
 clean:
 	rm -f build/hora
@@ -15,12 +33,7 @@ install-dependencies:
 run:
 	go run ./cmd/hora/...
 
-# Build for multiple platforms
-build-all:
-	GOOS=linux GOARCH=amd64 go build -o build/hora-linux-amd64 ./cmd/hora
-	GOOS=darwin GOARCH=amd64 go build -o build/hora-darwin-amd64 ./cmd/hora
-	GOOS=darwin GOARCH=arm64 go build -o build/hora-darwin-arm64 ./cmd/hora
-	GOOS=windows GOARCH=amd64 go build -o build/hora-windows-amd64.exe ./cmd/hora
-
 clean-all:
 	rm -f build/hora build/hora-*
+
+.PHONY: build build-all build-darwin build-linux clean test install-dependencies run

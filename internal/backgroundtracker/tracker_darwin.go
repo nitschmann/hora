@@ -37,17 +37,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
-
-	"github.com/nitschmann/hora/internal/service"
 )
-
-// global variable to hold the time tracking service
-var timeService service.TimeTracking
-
-// SetTimeTrackingService sets the time tracking service for screen lock integration
-func SetTimeTrackingService(ts service.TimeTracking) {
-	timeService = ts
-}
 
 //export onScreenLocked
 func onScreenLocked() {
@@ -148,4 +138,3 @@ func Start() {
 
 	C.startLockEventListenerHora()
 }
-

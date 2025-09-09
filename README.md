@@ -104,8 +104,7 @@ hora project remove --help
 
 The tool stores all time tracking data in a SQLite database. The database location varies by operating system:
 
-- **macOS**: `~/Library/Application Support/Hora/hora.db`
-- **Windows**: `%LOCALAPPDATA%\Hora\hora.db`
+- **macOS**: `~/Library/Application Support/hora/hora.db`
 - **Linux/Unix**: `~/.local/share/hora/hora.db`
 
 The database and directory are automatically created on first use.
