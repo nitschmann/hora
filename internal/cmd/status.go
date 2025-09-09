@@ -28,10 +28,10 @@ func NewStatusCmd() *cobra.Command {
 			currentDuration := time.Since(activeEntry.StartTime)
 			durationStr := timeService.FormatDuration(currentDuration)
 
-			fmt.Printf("Active session:\n")
-			fmt.Printf("  Project: %s\n", activeEntry.Project.Name)
-			fmt.Printf("  Started: %s\n", activeEntry.StartTime.Format("2006-01-02 15:04:05"))
-			fmt.Printf("  Duration: %s\n", durationStr)
+			fmt.Printf("Active session:\n\n")
+			fmt.Printf("Project: %s\n", activeEntry.Project.Name)
+			fmt.Printf("Started: %s\n", activeEntry.StartTime.Format("2006-01-02 15:04:05"))
+			fmt.Printf("Duration: %s\n", durationStr)
 
 			return nil
 		},

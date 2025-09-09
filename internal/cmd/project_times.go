@@ -25,12 +25,10 @@ func NewProjectTimesCmd() *cobra.Command {
 			ctx := cmd.Context()
 			projectIDOrName := args[0]
 
-			// Validate sort order
 			if sort != "asc" && sort != "desc" {
 				return fmt.Errorf("sort order must be 'asc' or 'desc', got: %s", sort)
 			}
 
-			// Parse since date if provided
 			var sinceTime *time.Time
 			if since != "" {
 				parsedTime, err := time.Parse("2006-01-02", since)
@@ -40,13 +38,11 @@ func NewProjectTimesCmd() *cobra.Command {
 				sinceTime = &parsedTime
 			}
 
-			// First check if the project exists
 			project, err := timeService.GetProjectByIDOrName(ctx, projectIDOrName)
 			if err != nil {
 				return fmt.Errorf("failed to get project: %w", err)
 			}
 
-			// Get time entries with pause information for the project
 			entries, err := timeService.GetEntriesForProjectWithPauses(ctx, projectIDOrName, limit, sort, sinceTime)
 			if err != nil {
 				return fmt.Errorf("failed to get time entries: %w", err)
@@ -57,7 +53,6 @@ func NewProjectTimesCmd() *cobra.Command {
 				return nil
 			}
 
-			// Create table
 			table := tablewriter.NewTable(cmd.OutOrStdout())
 			table.Header("Start Time", "End Time", "Duration", "Pauses", "Pause Time", "Effective Work Time")
 
@@ -81,7 +76,6 @@ func NewProjectTimesCmd() *cobra.Command {
 					durationStr = "In progress"
 				}
 
-				// Format pause information
 				pauseCountStr := fmt.Sprintf("%d", entry.PauseCount)
 				pauseTimeStr := timeService.FormatDuration(entry.PauseTime)
 				if entry.PauseCount == 0 {
@@ -106,7 +100,6 @@ func NewProjectTimesCmd() *cobra.Command {
 				})
 			}
 
-			// Render table
 			table.Render()
 
 			return nil

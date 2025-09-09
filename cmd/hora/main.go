@@ -2,10 +2,9 @@ package main
 
 import (
 	"context"
-	"log"
+	"fmt"
 	"os"
 
-	"github.com/nitschmann/hora/internal/backgroundtracker"
 	"github.com/nitschmann/hora/internal/cmd"
 )
 
@@ -14,19 +13,10 @@ var Version string
 
 func main() {
 	ctx := context.Background()
-
 	rootCmd := cmd.NewRootCmd()
 	err := rootCmd.ExecuteContext(ctx)
 	if err != nil {
-		// check if background tracker is running and stop it
-		if backgroundtracker.IsRunning() {
-			err := backgroundtracker.Stop()
-			if err != nil {
-				log.Printf("Warning: Failed to stop background tracker: %v\n", err)
-			}
-		}
-
-		log.Fatal(err)
+		fmt.Printf("Error: %+v\n", err)
 		os.Exit(1)
 	}
 }

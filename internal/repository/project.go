@@ -37,18 +37,18 @@ type Project interface {
 	GetByIDOrName(ctx context.Context, idOrName string) (*model.Project, error)
 }
 
-// ProjectImpl implements Project using SQLite
-type ProjectImpl struct {
+// project implements Project using SQLite
+type project struct {
 	db *sql.DB
 }
 
 // NewProject creates a new project repository
 func NewProject(db *sql.DB) Project {
-	return &ProjectImpl{db: db}
+	return &project{db: db}
 }
 
 // Create creates a new project
-func (r *ProjectImpl) Create(ctx context.Context, name string) (*model.Project, error) {
+func (r *project) Create(ctx context.Context, name string) (*model.Project, error) {
 	query, args, err := goqu.Insert("projects").Rows(goqu.Record{
 		"name": name,
 	}).ToSQL()
@@ -71,7 +71,7 @@ func (r *ProjectImpl) Create(ctx context.Context, name string) (*model.Project, 
 }
 
 // GetByID retrieves a project by its ID
-func (r *ProjectImpl) GetByID(ctx context.Context, id int) (*model.Project, error) {
+func (r *project) GetByID(ctx context.Context, id int) (*model.Project, error) {
 	query, args, err := goqu.From("projects").
 		Select("id", "name", "created_at").
 		Where(goqu.C("id").Eq(id)).
@@ -94,7 +94,7 @@ func (r *ProjectImpl) GetByID(ctx context.Context, id int) (*model.Project, erro
 }
 
 // GetByName retrieves a project by its name
-func (r *ProjectImpl) GetByName(ctx context.Context, name string) (*model.Project, error) {
+func (r *project) GetByName(ctx context.Context, name string) (*model.Project, error) {
 	query, args, err := goqu.From("projects").
 		Select("id", "name", "created_at").
 		Where(goqu.C("name").Eq(name)).
@@ -117,7 +117,7 @@ func (r *ProjectImpl) GetByName(ctx context.Context, name string) (*model.Projec
 }
 
 // GetOrCreate retrieves a project by name, or creates it if it doesn't exist
-func (r *ProjectImpl) GetOrCreate(ctx context.Context, name string) (*model.Project, error) {
+func (r *project) GetOrCreate(ctx context.Context, name string) (*model.Project, error) {
 	// Try to get existing project first
 	project, err := r.GetByName(ctx, name)
 	if err == nil {
@@ -129,12 +129,17 @@ func (r *ProjectImpl) GetOrCreate(ctx context.Context, name string) (*model.Proj
 }
 
 // GetAll retrieves all projects with their last tracked time
-func (r *ProjectImpl) GetAll(ctx context.Context) ([]model.Project, error) {
+func (r *project) GetAll(ctx context.Context) ([]model.Project, error) {
 	query, args, err := goqu.From("projects").
-		LeftJoin(goqu.T("time_entries"), goqu.On(goqu.C("projects.id").Eq(goqu.C("time_entries.project_id")))).
-		Select("projects.id", "projects.name", "projects.created_at", goqu.MAX("time_entries.end_time").As("last_tracked_at")).
-		GroupBy("projects.id", "projects.name", "projects.created_at").
-		Order(goqu.C("projects.name").Asc()).
+		LeftJoin(goqu.T("time_entries"), goqu.On(goqu.I("projects.id").Eq(goqu.I("time_entries.project_id")))).
+		Select(
+			goqu.I("projects.id"),
+			goqu.I("projects.name"),
+			goqu.I("projects.created_at"),
+			goqu.MAX(goqu.I("time_entries.end_time")).As("last_tracked_at"),
+		).
+		GroupBy(goqu.I("projects.id"), goqu.I("projects.name"), goqu.I("projects.created_at")).
+		Order(goqu.I("projects.name").Asc()).
 		ToSQL()
 	if err != nil {
 		return nil, err
@@ -186,7 +191,7 @@ func (r *ProjectImpl) GetAll(ctx context.Context) ([]model.Project, error) {
 }
 
 // Delete deletes a project by name
-func (r *ProjectImpl) Delete(ctx context.Context, name string) error {
+func (r *project) Delete(ctx context.Context, name string) error {
 	query, args, err := goqu.Delete("projects").
 		Where(goqu.C("name").Eq(name)).
 		ToSQL()
@@ -198,7 +203,7 @@ func (r *ProjectImpl) Delete(ctx context.Context, name string) error {
 }
 
 // DeleteByID deletes a project by ID
-func (r *ProjectImpl) DeleteByID(ctx context.Context, id int) error {
+func (r *project) DeleteByID(ctx context.Context, id int) error {
 	query, args, err := goqu.Delete("projects").
 		Where(goqu.C("id").Eq(id)).
 		ToSQL()
@@ -210,7 +215,7 @@ func (r *ProjectImpl) DeleteByID(ctx context.Context, id int) error {
 }
 
 // GetByIDOrName retrieves a project by ID (if numeric) or name
-func (r *ProjectImpl) GetByIDOrName(ctx context.Context, idOrName string) (*model.Project, error) {
+func (r *project) GetByIDOrName(ctx context.Context, idOrName string) (*model.Project, error) {
 	// Try to parse as integer first
 	if id, err := strconv.Atoi(idOrName); err == nil {
 		// It's a numeric ID

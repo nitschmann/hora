@@ -33,18 +33,18 @@ type Pause interface {
 	DeleteAll(ctx context.Context) error
 }
 
-// PauseImpl implements Pause using SQLite
-type PauseImpl struct {
+// pause implements Pause using SQLite
+type pause struct {
 	db *sql.DB
 }
 
 // NewPause creates a new pause repository
 func NewPause(db *sql.DB) Pause {
-	return &PauseImpl{db: db}
+	return &pause{db: db}
 }
 
 // Create creates a new pause
-func (r *PauseImpl) Create(ctx context.Context, timeEntryID int, pauseStart time.Time) (*model.Pause, error) {
+func (r *pause) Create(ctx context.Context, timeEntryID int, pauseStart time.Time) (*model.Pause, error) {
 	query, args, err := goqu.Insert("pauses").Rows(goqu.Record{
 		"time_entry_id": timeEntryID,
 		"pause_start":   pauseStart,
@@ -68,9 +68,9 @@ func (r *PauseImpl) Create(ctx context.Context, timeEntryID int, pauseStart time
 }
 
 // GetByID retrieves a pause by its ID
-func (r *PauseImpl) GetByID(ctx context.Context, id int) (*model.Pause, error) {
+func (r *pause) GetByID(ctx context.Context, id int) (*model.Pause, error) {
 	query, args, err := goqu.From("pauses").
-		Select("id", "time_entry_id", "pause_start", "pause_end", "duration", "created_at").
+		Select(goqu.Star()).
 		Where(goqu.C("id").Eq(id)).
 		ToSQL()
 	if err != nil {
@@ -103,9 +103,9 @@ func (r *PauseImpl) GetByID(ctx context.Context, id int) (*model.Pause, error) {
 }
 
 // GetActivePause retrieves the currently active pause for a time entry
-func (r *PauseImpl) GetActivePause(ctx context.Context, timeEntryID int) (*model.Pause, error) {
+func (r *pause) GetActivePause(ctx context.Context, timeEntryID int) (*model.Pause, error) {
 	query, args, err := goqu.From("pauses").
-		Select("id", "time_entry_id", "pause_start", "pause_end", "duration", "created_at").
+		Select(goqu.Star()).
 		Where(goqu.C("time_entry_id").Eq(timeEntryID), goqu.C("pause_end").IsNull()).
 		Order(goqu.C("pause_start").Desc()).
 		Limit(1).
@@ -140,7 +140,7 @@ func (r *PauseImpl) GetActivePause(ctx context.Context, timeEntryID int) (*model
 }
 
 // EndPause ends a pause by setting its end time and duration
-func (r *PauseImpl) EndPause(ctx context.Context, id int, pauseEnd time.Time, duration time.Duration) error {
+func (r *pause) EndPause(ctx context.Context, id int, pauseEnd time.Time, duration time.Duration) error {
 	durationSeconds := int64(duration.Seconds())
 	query, args, err := goqu.Update("pauses").
 		Set(goqu.Record{
@@ -157,9 +157,9 @@ func (r *PauseImpl) EndPause(ctx context.Context, id int, pauseEnd time.Time, du
 }
 
 // GetByTimeEntry retrieves all pauses for a specific time entry
-func (r *PauseImpl) GetByTimeEntry(ctx context.Context, timeEntryID int) ([]model.Pause, error) {
+func (r *pause) GetByTimeEntry(ctx context.Context, timeEntryID int) ([]model.Pause, error) {
 	query, args, err := goqu.From("pauses").
-		Select("id", "time_entry_id", "pause_start", "pause_end", "duration", "created_at").
+		Select(goqu.Star()).
 		Where(goqu.C("time_entry_id").Eq(timeEntryID)).
 		Order(goqu.C("pause_start").Asc()).
 		ToSQL()
@@ -177,7 +177,7 @@ func (r *PauseImpl) GetByTimeEntry(ctx context.Context, timeEntryID int) ([]mode
 }
 
 // DeleteByTimeEntry deletes all pauses for a specific time entry
-func (r *PauseImpl) DeleteByTimeEntry(ctx context.Context, timeEntryID int) error {
+func (r *pause) DeleteByTimeEntry(ctx context.Context, timeEntryID int) error {
 	query, args, err := goqu.Delete("pauses").
 		Where(goqu.C("time_entry_id").Eq(timeEntryID)).
 		ToSQL()
@@ -189,7 +189,7 @@ func (r *PauseImpl) DeleteByTimeEntry(ctx context.Context, timeEntryID int) erro
 }
 
 // DeleteAll deletes all pauses
-func (r *PauseImpl) DeleteAll(ctx context.Context) error {
+func (r *pause) DeleteAll(ctx context.Context) error {
 	query, args, err := goqu.Delete("pauses").ToSQL()
 	if err != nil {
 		return err
@@ -199,7 +199,7 @@ func (r *PauseImpl) DeleteAll(ctx context.Context) error {
 }
 
 // scanPauses is a helper method to scan pauses from rows
-func (r *PauseImpl) scanPauses(rows *sql.Rows) ([]model.Pause, error) {
+func (r *pause) scanPauses(rows *sql.Rows) ([]model.Pause, error) {
 	var pauses []model.Pause
 
 	for rows.Next() {

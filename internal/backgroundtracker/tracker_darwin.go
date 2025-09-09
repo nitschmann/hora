@@ -90,3 +90,4 @@ func Start() {
 	Logger().Info("Starting screen lock detection...")
 	C.startLockEventListenerHora()
 }
+

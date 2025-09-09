@@ -10,9 +10,8 @@ import (
 
 func NewTimesCmd() *cobra.Command {
 	var (
-		limit int
-		sort  string
 		since string
+		sort  string
 	)
 
 	cmd := &cobra.Command{
@@ -21,6 +20,16 @@ func NewTimesCmd() *cobra.Command {
 		Long:  `List all time entries across all projects, showing start time, end time, duration, and project information.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+
+			// Get the limit from command flags
+			limit, err := cmd.Flags().GetInt("limit")
+			if err != nil {
+				return fmt.Errorf("failed to get limit flag: %w", err)
+			}
+
+			if sort != "asc" && sort != "desc" {
+				return fmt.Errorf("sort order must be 'asc' or 'desc', got: %s", sort)
+			}
 
 			var sinceTime *time.Time
 			if since != "" {
@@ -64,7 +73,6 @@ func NewTimesCmd() *cobra.Command {
 					durationStr = "In progress"
 				}
 
-				// Format pause information
 				pauseCountStr := fmt.Sprintf("%d", entry.PauseCount)
 				pauseTimeStr := timeService.FormatDuration(entry.PauseTime)
 				if entry.PauseCount == 0 {
@@ -90,16 +98,15 @@ func NewTimesCmd() *cobra.Command {
 				})
 			}
 
-			// Render table
 			table.Render()
 
 			return nil
 		},
 	}
 
-	cmd.Flags().IntVarP(&limit, "limit", "l", 50, "Maximum number of entries to show")
-	cmd.Flags().StringVarP(&sort, "sort", "s", "desc", "Sort order: 'asc' (oldest first) or 'desc' (newest first)")
+	cmd.Flags().IntP("limit", "l", 50, "Maximum number of entries to show")
 	cmd.Flags().StringVar(&since, "since", "", "Only show entries since this date (YYYY-MM-DD format)")
+	cmd.Flags().StringVarP(&sort, "sort", "s", "desc", "Sort order: 'asc' (oldest first) or 'desc' (newest first)")
 
 	return cmd
 }
