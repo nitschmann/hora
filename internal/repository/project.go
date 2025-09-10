@@ -11,6 +11,8 @@ import (
 	"github.com/nitschmann/hora/internal/model"
 )
 
+const projectTable = "projects"
+
 // Project defines the interface for project data operations
 type Project interface {
 	// Create creates a new project
@@ -31,7 +33,6 @@ type Project interface {
 	GetByIDOrName(ctx context.Context, idOrName string) (*model.Project, error)
 }
 
-// project implements Project using SQLite
 type project struct {
 	db *sql.DB
 }
@@ -43,7 +44,7 @@ func NewProject(db *sql.DB) Project {
 
 // Create creates a new project
 func (r *project) Create(ctx context.Context, name string) (*model.Project, error) {
-	query, args, err := goqu.Insert("projects").Rows(goqu.Record{
+	query, args, err := goqu.Insert(projectTable).Rows(goqu.Record{
 		"name": name,
 	}).ToSQL()
 	if err != nil {
@@ -66,7 +67,7 @@ func (r *project) Create(ctx context.Context, name string) (*model.Project, erro
 
 // GetByID retrieves a project by its ID
 func (r *project) GetByID(ctx context.Context, id int) (*model.Project, error) {
-	query, args, err := goqu.From("projects").
+	query, args, err := goqu.From(projectTable).
 		Select("id", "name", "created_at").
 		Where(goqu.C("id").Eq(id)).
 		ToSQL()
@@ -89,7 +90,7 @@ func (r *project) GetByID(ctx context.Context, id int) (*model.Project, error) {
 
 // GetByName retrieves a project by its name
 func (r *project) GetByName(ctx context.Context, name string) (*model.Project, error) {
-	query, args, err := goqu.From("projects").
+	query, args, err := goqu.From(projectTable).
 		Select("id", "name", "created_at").
 		Where(goqu.C("name").Eq(name)).
 		ToSQL()
@@ -124,7 +125,7 @@ func (r *project) GetOrCreate(ctx context.Context, name string) (*model.Project,
 
 // GetAll retrieves all projects with their last tracked time
 func (r *project) GetAll(ctx context.Context) ([]model.Project, error) {
-	query, args, err := goqu.From("projects").
+	query, args, err := goqu.From(projectTable).
 		LeftJoin(goqu.T("time_entries"), goqu.On(goqu.I("projects.id").Eq(goqu.I("time_entries.project_id")))).
 		Select(
 			goqu.I("projects.id"),
@@ -186,7 +187,7 @@ func (r *project) GetAll(ctx context.Context) ([]model.Project, error) {
 
 // Delete deletes a project by name
 func (r *project) Delete(ctx context.Context, name string) error {
-	query, args, err := goqu.Delete("projects").
+	query, args, err := goqu.Delete(projectTable).
 		Where(goqu.C("name").Eq(name)).
 		ToSQL()
 	if err != nil {
@@ -198,7 +199,7 @@ func (r *project) Delete(ctx context.Context, name string) error {
 
 // DeleteByID deletes a project by ID
 func (r *project) DeleteByID(ctx context.Context, id int) error {
-	query, args, err := goqu.Delete("projects").
+	query, args, err := goqu.Delete(projectTable).
 		Where(goqu.C("id").Eq(id)).
 		ToSQL()
 	if err != nil {

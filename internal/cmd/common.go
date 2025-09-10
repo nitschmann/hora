@@ -34,12 +34,7 @@ func formatDateInLocal(t time.Time) string {
 // validateCategory validates that a category contains only alphanumeric characters, underscores, and hyphens
 func validateCategory(category string) error {
 	if category == "" {
-		return nil // Empty category is allowed
-	}
-
-	// Check length
-	if len(category) > 50 {
-		return fmt.Errorf("category must be 50 characters or less")
+		return nil
 	}
 
 	// Check for common shell special characters that might cause issues
@@ -47,7 +42,6 @@ func validateCategory(category string) error {
 		return fmt.Errorf("category contains shell special characters (!$`\\) that may cause issues. Use only alphanumeric characters, underscores (_), and hyphens (-)")
 	}
 
-	// Check pattern: only alphanumeric, underscore, and hyphen
 	matched, err := regexp.MatchString(`^[a-zA-Z0-9_-]+$`, category)
 	if err != nil {
 		return fmt.Errorf("failed to validate category: %w", err)
@@ -59,6 +53,7 @@ func validateCategory(category string) error {
 
 	return nil
 }
+
 func initDatabaseConnectionAndService() error {
 	var err error
 	dbConn, err = database.NewConnection(conf)

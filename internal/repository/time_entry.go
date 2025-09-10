@@ -11,6 +11,8 @@ import (
 	"github.com/nitschmann/hora/internal/model"
 )
 
+const timeEntryTable = "time_entries"
+
 // TimeEntryWithPauses represents a time entry with its pause information
 type TimeEntryWithPauses struct {
 	model.TimeEntry
@@ -73,7 +75,7 @@ func (r *timeEntry) Create(ctx context.Context, projectID int, startTime time.Ti
 		record["category"] = *category
 	}
 
-	query, args, err := goqu.Insert("time_entries").Rows(record).ToSQL()
+	query, args, err := goqu.Insert(timeEntryTable).Rows(record).ToSQL()
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +95,7 @@ func (r *timeEntry) Create(ctx context.Context, projectID int, startTime time.Ti
 
 // GetByID retrieves a time entry by its ID
 func (r *timeEntry) GetByID(ctx context.Context, id int) (*model.TimeEntry, error) {
-	query, args, err := goqu.From(goqu.T("time_entries").As("te")).
+	query, args, err := goqu.From(goqu.T(timeEntryTable).As("te")).
 		Select(
 			goqu.I("te.id"),
 			goqu.I("te.project_id"),
@@ -106,7 +108,7 @@ func (r *timeEntry) GetByID(ctx context.Context, id int) (*model.TimeEntry, erro
 			goqu.I("p.name").As("project_name"),
 			goqu.I("p.created_at").As("project_created_at"),
 		).
-		Join(goqu.T("projects").As("p"), goqu.On(goqu.I("te.project_id").Eq(goqu.I("p.id")))).
+		Join(goqu.T(ProjectTable).As("p"), goqu.On(goqu.I("te.project_id").Eq(goqu.I("p.id")))).
 		Where(goqu.I("te.id").Eq(id)).
 		ToSQL()
 	if err != nil {
@@ -148,7 +150,7 @@ func (r *timeEntry) GetByID(ctx context.Context, id int) (*model.TimeEntry, erro
 
 // GetActive retrieves the currently active time entry
 func (r *timeEntry) GetActive(ctx context.Context) (*model.TimeEntry, error) {
-	query, args, err := goqu.From(goqu.T("time_entries").As("te")).
+	query, args, err := goqu.From(goqu.T(timeEntryTable).As("te")).
 		Select(
 			goqu.I("te.id"),
 			goqu.I("te.project_id"),
@@ -161,7 +163,7 @@ func (r *timeEntry) GetActive(ctx context.Context) (*model.TimeEntry, error) {
 			goqu.I("p.name").As("project_name"),
 			goqu.I("p.created_at").As("project_created_at"),
 		).
-		Join(goqu.T("projects").As("p"), goqu.On(goqu.I("te.project_id").Eq(goqu.I("p.id")))).
+		Join(goqu.T(ProjectTable).As("p"), goqu.On(goqu.I("te.project_id").Eq(goqu.I("p.id")))).
 		Where(goqu.I("te.end_time").IsNull()).
 		Order(goqu.I("te.start_time").Desc()).
 		Limit(1).
@@ -206,7 +208,7 @@ func (r *timeEntry) GetActive(ctx context.Context) (*model.TimeEntry, error) {
 // UpdateEndTime updates the end time and duration of a time entry
 func (r *timeEntry) UpdateEndTime(ctx context.Context, id int, endTime time.Time, duration time.Duration) error {
 	durationSeconds := int64(duration.Seconds())
-	query, args, err := goqu.Update("time_entries").
+	query, args, err := goqu.Update(timeEntryTable).
 		Set(goqu.Record{
 			"end_time": endTime,
 			"duration": durationSeconds,
@@ -223,7 +225,7 @@ func (r *timeEntry) UpdateEndTime(ctx context.Context, id int, endTime time.Time
 // StopAllActive stops all active time entries by setting their end time
 func (r *timeEntry) StopAllActive(ctx context.Context) error {
 	now := time.Now()
-	query, args, err := goqu.Update("time_entries").
+	query, args, err := goqu.Update(timeEntryTable).
 		Set(goqu.Record{
 			"end_time": now,
 			"duration": 0, // duration will be calculated later
@@ -249,7 +251,7 @@ func (r *timeEntry) GetByProject(ctx context.Context, projectID int, limit int, 
 		orderDirection = "DESC"
 	}
 
-	queryBuilder := goqu.From(goqu.T("time_entries").As("te")).
+	queryBuilder := goqu.From(goqu.T(timeEntryTable).As("te")).
 		Select(
 			goqu.I("te.id"),
 			goqu.I("te.project_id"),
@@ -262,7 +264,7 @@ func (r *timeEntry) GetByProject(ctx context.Context, projectID int, limit int, 
 			goqu.I("p.name").As("project_name"),
 			goqu.I("p.created_at").As("project_created_at"),
 		).
-		Join(goqu.T("projects").As("p"), goqu.On(goqu.I("te.project_id").Eq(goqu.I("p.id")))).
+		Join(goqu.T(ProjectTable).As("p"), goqu.On(goqu.I("te.project_id").Eq(goqu.I("p.id")))).
 		Where(goqu.I("te.project_id").Eq(projectID))
 
 	if orderDirection == "ASC" {
@@ -297,7 +299,7 @@ func (r *timeEntry) GetByProjectName(ctx context.Context, projectName string, li
 		orderDirection = "DESC"
 	}
 
-	queryBuilder := goqu.From(goqu.T("time_entries").As("te")).
+	queryBuilder := goqu.From(goqu.T(timeEntryTable).As("te")).
 		Select(
 			goqu.I("te.id"),
 			goqu.I("te.project_id"),
@@ -310,7 +312,7 @@ func (r *timeEntry) GetByProjectName(ctx context.Context, projectName string, li
 			goqu.I("p.name").As("project_name"),
 			goqu.I("p.created_at").As("project_created_at"),
 		).
-		Join(goqu.T("projects").As("p"), goqu.On(goqu.I("te.project_id").Eq(goqu.I("p.id")))).
+		Join(goqu.T(ProjectTable).As("p"), goqu.On(goqu.I("te.project_id").Eq(goqu.I("p.id")))).
 		Where(goqu.I("p.name").Eq(projectName))
 
 	if orderDirection == "ASC" {
@@ -335,8 +337,8 @@ func (r *timeEntry) GetByProjectName(ctx context.Context, projectName string, li
 
 // GetAll retrieves all time entries with a limit
 func (r *timeEntry) GetAll(ctx context.Context, limit int) ([]model.TimeEntry, error) {
-	query, args, err := goqu.From("time_entries").
-		Join(goqu.T("projects"), goqu.On(goqu.C("time_entries.project_id").Eq(goqu.C("projects.id")))).
+	query, args, err := goqu.From(timeEntryTable).
+		Join(goqu.T(ProjectTable), goqu.On(goqu.C("time_entries.project_id").Eq(goqu.C("projects.id")))).
 		Select(
 			"time_entries.id", "time_entries.project_id", "time_entries.start_time", "time_entries.end_time", "time_entries.duration", "time_entries.category", "time_entries.created_at",
 			goqu.C("projects.id").As("project_id2"), goqu.C("projects.name").As("project_name"), goqu.C("projects.created_at").As("project_created_at"),
@@ -388,7 +390,7 @@ func (r *timeEntry) GetByProjectWithPauses(ctx context.Context, projectID int, l
 	}
 
 	// Build the subquery for pause stats
-	pauseStatsSubquery := goqu.From("pauses").
+	pauseStatsSubquery := goqu.From(PauseTable).
 		Select(
 			goqu.I("time_entry_id"),
 			goqu.COUNT("*").As("pause_count"),
@@ -398,7 +400,7 @@ func (r *timeEntry) GetByProjectWithPauses(ctx context.Context, projectID int, l
 		GroupBy(goqu.I("time_entry_id"))
 
 	// main query
-	queryBuilder := goqu.From(goqu.T("time_entries").As("te")).
+	queryBuilder := goqu.From(goqu.T(timeEntryTable).As("te")).
 		Select(
 			goqu.I("te.id"),
 			goqu.I("te.project_id"),
@@ -413,7 +415,7 @@ func (r *timeEntry) GetByProjectWithPauses(ctx context.Context, projectID int, l
 			goqu.COALESCE(goqu.I("pause_stats.pause_count"), 0).As("pause_count"),
 			goqu.COALESCE(goqu.I("pause_stats.total_pause_time"), 0).As("total_pause_time"),
 		).
-		Join(goqu.T("projects").As("p"), goqu.On(goqu.I("te.project_id").Eq(goqu.I("p.id")))).
+		Join(goqu.T(ProjectTable).As("p"), goqu.On(goqu.I("te.project_id").Eq(goqu.I("p.id")))).
 		LeftJoin(pauseStatsSubquery.As("pause_stats"), goqu.On(goqu.I("te.id").Eq(goqu.I("pause_stats.time_entry_id")))).
 		Where(goqu.I("te.project_id").Eq(projectID))
 
@@ -454,7 +456,7 @@ func (r *timeEntry) GetByProjectNameWithPauses(ctx context.Context, projectName 
 	}
 
 	// Build the subquery for pause stats
-	pauseStatsSubquery := goqu.From("pauses").
+	pauseStatsSubquery := goqu.From(PauseTable).
 		Select(
 			goqu.I("time_entry_id"),
 			goqu.COUNT("*").As("pause_count"),
@@ -464,7 +466,7 @@ func (r *timeEntry) GetByProjectNameWithPauses(ctx context.Context, projectName 
 		GroupBy(goqu.I("time_entry_id"))
 
 	// main query
-	queryBuilder := goqu.From(goqu.T("time_entries").As("te")).
+	queryBuilder := goqu.From(goqu.T(timeEntryTable).As("te")).
 		Select(
 			goqu.I("te.id"),
 			goqu.I("te.project_id"),
@@ -479,7 +481,7 @@ func (r *timeEntry) GetByProjectNameWithPauses(ctx context.Context, projectName 
 			goqu.COALESCE(goqu.I("pause_stats.pause_count"), 0).As("pause_count"),
 			goqu.COALESCE(goqu.I("pause_stats.total_pause_time"), 0).As("total_pause_time"),
 		).
-		Join(goqu.T("projects").As("p"), goqu.On(goqu.I("te.project_id").Eq(goqu.I("p.id")))).
+		Join(goqu.T(ProjectTable).As("p"), goqu.On(goqu.I("te.project_id").Eq(goqu.I("p.id")))).
 		LeftJoin(pauseStatsSubquery.As("pause_stats"), goqu.On(goqu.I("te.id").Eq(goqu.I("pause_stats.time_entry_id")))).
 		Where(goqu.I("p.name").Eq(projectName))
 
@@ -563,7 +565,7 @@ func (r *timeEntry) scanTimeEntriesWithPauses(rows *sql.Rows) ([]TimeEntryWithPa
 
 // DeleteByProject deletes all time entries for a specific project
 func (r *timeEntry) DeleteByProject(ctx context.Context, projectID int) error {
-	query, args, err := goqu.Delete("time_entries").
+	query, args, err := goqu.Delete(timeEntryTable).
 		Where(goqu.C("project_id").Eq(projectID)).
 		ToSQL()
 	if err != nil {
@@ -575,7 +577,7 @@ func (r *timeEntry) DeleteByProject(ctx context.Context, projectID int) error {
 
 // DeleteAll deletes all time entries
 func (r *timeEntry) DeleteAll(ctx context.Context) error {
-	query, args, err := goqu.Delete("time_entries").ToSQL()
+	query, args, err := goqu.Delete(timeEntryTable).ToSQL()
 	if err != nil {
 		return err
 	}
@@ -635,7 +637,7 @@ func (r *timeEntry) GetTotalTimeByProjectIDOrName(ctx context.Context, projectID
 
 // GetTotalTimeByProject retrieves the total tracked time for a specific project
 func (r *timeEntry) GetTotalTimeByProject(ctx context.Context, projectID int, since *time.Time) (time.Duration, error) {
-	pauseStatsSubquery := goqu.From("pauses").
+	pauseStatsSubquery := goqu.From(PauseTable).
 		Select(
 			goqu.I("time_entry_id"),
 			goqu.SUM(goqu.COALESCE(goqu.I("duration"), 0)).As("total_pause_time"),
@@ -644,7 +646,7 @@ func (r *timeEntry) GetTotalTimeByProject(ctx context.Context, projectID int, si
 		GroupBy(goqu.I("time_entry_id"))
 
 	// main query
-	queryBuilder := goqu.From(goqu.T("time_entries").As("te")).
+	queryBuilder := goqu.From(goqu.T(timeEntryTable).As("te")).
 		Select(
 			goqu.COALESCE(
 				goqu.SUM(goqu.L("te.duration + COALESCE(pause_stats.total_pause_time, 0)")),
@@ -677,7 +679,7 @@ func (r *timeEntry) GetTotalTimeByProject(ctx context.Context, projectID int, si
 
 // GetTotalTimeByProjectName retrieves the total tracked time for a project by name
 func (r *timeEntry) GetTotalTimeByProjectName(ctx context.Context, projectName string, since *time.Time) (time.Duration, error) {
-	pauseStatsSubquery := goqu.From("pauses").
+	pauseStatsSubquery := goqu.From(PauseTable).
 		Select(
 			goqu.I("time_entry_id"),
 			goqu.SUM(goqu.COALESCE(goqu.I("duration"), 0)).As("total_pause_time"),
@@ -685,14 +687,14 @@ func (r *timeEntry) GetTotalTimeByProjectName(ctx context.Context, projectName s
 		Where(goqu.I("pause_end").IsNotNull()).
 		GroupBy(goqu.I("time_entry_id"))
 
-	queryBuilder := goqu.From(goqu.T("time_entries").As("te")).
+	queryBuilder := goqu.From(goqu.T(timeEntryTable).As("te")).
 		Select(
 			goqu.COALESCE(
 				goqu.SUM(goqu.L("te.duration + COALESCE(pause_stats.total_pause_time, 0)")),
 				0,
 			).As("total_time"),
 		).
-		Join(goqu.T("projects").As("p"), goqu.On(goqu.I("te.project_id").Eq(goqu.I("p.id")))).
+		Join(goqu.T(ProjectTable).As("p"), goqu.On(goqu.I("te.project_id").Eq(goqu.I("p.id")))).
 		LeftJoin(pauseStatsSubquery.As("pause_stats"), goqu.On(goqu.I("te.id").Eq(goqu.I("pause_stats.time_entry_id")))).
 		Where(
 			goqu.I("p.name").Eq(projectName),

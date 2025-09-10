@@ -6,34 +6,30 @@ import (
 	"time"
 
 	"github.com/doug-martin/goqu/v9"
+
 	"github.com/nitschmann/hora/internal/model"
 )
+
+const pauseTable = "pauses"
 
 // Pause defines the interface for pause data operations
 type Pause interface {
 	// Create creates a new pause
 	Create(ctx context.Context, timeEntryID int, pauseStart time.Time) (*model.Pause, error)
-
 	// GetByID retrieves a pause by its ID
 	GetByID(ctx context.Context, id int) (*model.Pause, error)
-
 	// GetActivePause retrieves the currently active pause for a time entry
 	GetActivePause(ctx context.Context, timeEntryID int) (*model.Pause, error)
-
 	// EndPause ends a pause by setting its end time and duration
 	EndPause(ctx context.Context, id int, pauseEnd time.Time, duration time.Duration) error
-
 	// GetByTimeEntry retrieves all pauses for a specific time entry
 	GetByTimeEntry(ctx context.Context, timeEntryID int) ([]model.Pause, error)
-
 	// DeleteByTimeEntry deletes all pauses for a specific time entry
 	DeleteByTimeEntry(ctx context.Context, timeEntryID int) error
-
 	// DeleteAll deletes all pauses
 	DeleteAll(ctx context.Context) error
 }
 
-// pause implements Pause using SQLite
 type pause struct {
 	db *sql.DB
 }
@@ -45,7 +41,7 @@ func NewPause(db *sql.DB) Pause {
 
 // Create creates a new pause
 func (r *pause) Create(ctx context.Context, timeEntryID int, pauseStart time.Time) (*model.Pause, error) {
-	query, args, err := goqu.Insert("pauses").Rows(goqu.Record{
+	query, args, err := goqu.Insert(pauseTable).Rows(goqu.Record{
 		"time_entry_id": timeEntryID,
 		"pause_start":   pauseStart,
 	}).ToSQL()
@@ -63,13 +59,12 @@ func (r *pause) Create(ctx context.Context, timeEntryID int, pauseStart time.Tim
 		return nil, err
 	}
 
-	// Get the created pause
 	return r.GetByID(ctx, int(id))
 }
 
 // GetByID retrieves a pause by its ID
 func (r *pause) GetByID(ctx context.Context, id int) (*model.Pause, error) {
-	query, args, err := goqu.From("pauses").
+	query, args, err := goqu.From(pauseTable).
 		Select(goqu.Star()).
 		Where(goqu.C("id").Eq(id)).
 		ToSQL()
@@ -104,7 +99,7 @@ func (r *pause) GetByID(ctx context.Context, id int) (*model.Pause, error) {
 
 // GetActivePause retrieves the currently active pause for a time entry
 func (r *pause) GetActivePause(ctx context.Context, timeEntryID int) (*model.Pause, error) {
-	query, args, err := goqu.From("pauses").
+	query, args, err := goqu.From(pauseTable).
 		Select(goqu.Star()).
 		Where(goqu.C("time_entry_id").Eq(timeEntryID), goqu.C("pause_end").IsNull()).
 		Order(goqu.C("pause_start").Desc()).
@@ -142,7 +137,7 @@ func (r *pause) GetActivePause(ctx context.Context, timeEntryID int) (*model.Pau
 // EndPause ends a pause by setting its end time and duration
 func (r *pause) EndPause(ctx context.Context, id int, pauseEnd time.Time, duration time.Duration) error {
 	durationSeconds := int64(duration.Seconds())
-	query, args, err := goqu.Update("pauses").
+	query, args, err := goqu.Update(pauseTable).
 		Set(goqu.Record{
 			"pause_end": pauseEnd,
 			"duration":  durationSeconds,
@@ -158,7 +153,7 @@ func (r *pause) EndPause(ctx context.Context, id int, pauseEnd time.Time, durati
 
 // GetByTimeEntry retrieves all pauses for a specific time entry
 func (r *pause) GetByTimeEntry(ctx context.Context, timeEntryID int) ([]model.Pause, error) {
-	query, args, err := goqu.From("pauses").
+	query, args, err := goqu.From(pauseTable).
 		Select(goqu.Star()).
 		Where(goqu.C("time_entry_id").Eq(timeEntryID)).
 		Order(goqu.C("pause_start").Asc()).
@@ -178,7 +173,7 @@ func (r *pause) GetByTimeEntry(ctx context.Context, timeEntryID int) ([]model.Pa
 
 // DeleteByTimeEntry deletes all pauses for a specific time entry
 func (r *pause) DeleteByTimeEntry(ctx context.Context, timeEntryID int) error {
-	query, args, err := goqu.Delete("pauses").
+	query, args, err := goqu.Delete(pauseTable).
 		Where(goqu.C("time_entry_id").Eq(timeEntryID)).
 		ToSQL()
 	if err != nil {
@@ -190,7 +185,7 @@ func (r *pause) DeleteByTimeEntry(ctx context.Context, timeEntryID int) error {
 
 // DeleteAll deletes all pauses
 func (r *pause) DeleteAll(ctx context.Context) error {
-	query, args, err := goqu.Delete("pauses").ToSQL()
+	query, args, err := goqu.Delete(pauseTable).ToSQL()
 	if err != nil {
 		return err
 	}
