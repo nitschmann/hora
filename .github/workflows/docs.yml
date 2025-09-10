@@ -1,8 +1,6 @@
 name: Update Documentation
 
 on:
-  push:
-    branches: [ main ]
   workflow_run:
     workflows: ["Tests"]
     types: [completed]
@@ -10,7 +8,7 @@ on:
 
 jobs:
   update-docs:
-    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'push' }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-24.04
     
     steps:
