@@ -18,10 +18,12 @@ hora is a simple command-line time tracking tool. Track your project time with e
 * [hora continue](hora_continue.md)	 - Continue the currently paused time tracking session
 * [hora delete-all](hora_delete-all.md)	 - Delete all time tracking data
 * [hora export](hora_export.md)	 - Export time entries to CSV
+* [hora logs](hora_logs.md)	 - Display background (daemon) tracker logs
 * [hora pause](hora_pause.md)	 - Pause the currently active time tracking session
 * [hora project](hora_project.md)	 - Manage projects
 * [hora start](hora_start.md)	 - Start tracking time for a project
 * [hora status](hora_status.md)	 - Show the currently active time tracking session
 * [hora stop](hora_stop.md)	 - Stop the current time tracking session
 * [hora times](hora_times.md)	 - List all time entries across all projects
+* [hora version](hora_version.md)	 - Show version information
 
