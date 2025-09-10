@@ -45,6 +45,7 @@ jobs:
       run: |
         git config --local user.email "github-actions[bot]@users.noreply.github.com"
         git config --local user.name "github-actions[bot]"
+        git pull --rebase origin main
         git add docs/
         git commit -m "docs: auto-update CLI documentation [skip ci]"
         git push origin main

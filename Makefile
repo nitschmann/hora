@@ -1,24 +1,25 @@
 BUILD_DIR := build
 PKG 			:= ./cmd/hora
+VERSION 	:= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 
-LINUX_ARCHS := amd64 arm64 386
+LINUX_ARCHS  := amd64 arm64 386
 DARWIN_ARCHS := amd64 arm64
 
 build:
-	go build -o build/hora ./cmd/hora
+	go build -ldflags "-X main.Version=$(VERSION)" -o build/hora ./cmd/hora
 
 build-all: build-darwin build-linux
 
 build-darwin:
 	@for arch in $(DARWIN_ARCHS); do \
 		echo "Building for darwin $$arch..."; \
-		GOOS=darwin GOARCH=$$arch CGO_ENABLED=1 go build -o $(BUILD_DIR)/hora-darwin-$$arch $(PKG); \
+		GOOS=darwin GOARCH=$$arch CGO_ENABLED=1 go build -ldflags "-X main.Version=$(VERSION)" -o $(BUILD_DIR)/hora-darwin-$$arch $(PKG); \
 	done
 
 build-linux:
 	@for arch in $(LINUX_ARCHS); do \
 		echo "Building for linux $$arch..."; \
-		GOOS=linux GOARCH=$$arch CGO_ENABLED=0 go build -o $(BUILD_DIR)/hora-linux-$$arch $(PKG); \
+		GOOS=linux GOARCH=$$arch CGO_ENABLED=0 go build -ldflags "-X main.Version=$(VERSION)" -o $(BUILD_DIR)/hora-linux-$$arch $(PKG); \
 	done
 
 clean:

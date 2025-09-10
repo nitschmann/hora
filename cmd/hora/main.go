@@ -13,6 +13,7 @@ var Version string
 
 func main() {
 	ctx := context.Background()
+	cmd.Version = Version
 	rootCmd := cmd.NewRootCmd()
 	err := rootCmd.ExecuteContext(ctx)
 	if err != nil {
