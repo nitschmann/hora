@@ -1,8 +1,11 @@
 package cmd
 
 import (
+	"encoding/csv"
 	"fmt"
+	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -15,6 +18,89 @@ var (
 	dbConn      *database.Connection
 	timeService service.TimeTracking
 )
+
+func exportTimesToCSV(entries []repository.TimeEntryWithPauses, filename string, project string) (string, error) {
+	if filename == "" {
+		timestamp := time.Now().Format("20060102150405")
+		filename = fmt.Sprintf("%s_times.csv", timestamp)
+	}
+
+	file, err := os.Create(filename)
+	if err != nil {
+		return filename, err
+	}
+	defer file.Close()
+
+	writer := csv.NewWriter(file)
+	defer writer.Flush()
+
+	header := []string{
+		"Start Time",
+		"End Time",
+		"Project",
+		"Category",
+		"Duration",
+		"Pauses",
+		"Pause Time",
+		"Effective Work Time",
+	}
+	if err := writer.Write(header); err != nil {
+		return filename, err
+	}
+
+	for _, entry := range entries {
+		startTime := formatTimeInLocal(entry.StartTime)
+		endTime := "-"
+		if entry.EndTime != nil {
+			endTime = formatTimeInLocal(*entry.EndTime)
+		}
+
+		rowProject := project
+		if rowProject == "" {
+			rowProject = entry.Project.Name
+		}
+
+		category := "-"
+		if entry.Category != nil {
+			category = *entry.Category
+		}
+
+		duration := "-"
+		if entry.Duration != nil {
+			duration = formatDuration(*entry.Duration)
+		}
+
+		pauseTime := "-"
+		if entry.PauseTime > 0 {
+			pauseTime = formatDuration(entry.PauseTime)
+		}
+
+		effectiveTime := "-"
+		if entry.Duration != nil {
+			effective := *entry.Duration - entry.PauseTime
+			if effective > 0 {
+				effectiveTime = formatDuration(effective)
+			}
+		}
+
+		record := []string{
+			startTime,
+			endTime,
+			rowProject,
+			category,
+			duration,
+			strconv.Itoa(entry.PauseCount),
+			pauseTime,
+			effectiveTime,
+		}
+
+		if err := writer.Write(record); err != nil {
+			return filename, err
+		}
+	}
+
+	return filename, nil
+}
 
 // formatTimeInLocal formats a time value in the local timezone
 func formatTimeInLocal(t time.Time) string {
@@ -52,6 +138,14 @@ func validateCategory(category string) error {
 	}
 
 	return nil
+}
+
+// formatDuration formats a duration as HH:MM:SS
+func formatDuration(d time.Duration) string {
+	hours := int(d.Hours())
+	minutes := int(d.Minutes()) % 60
+	seconds := int(d.Seconds()) % 60
+	return fmt.Sprintf("%02d:%02d:%02d", hours, minutes, seconds)
 }
 
 func initDatabaseConnectionAndService() error {

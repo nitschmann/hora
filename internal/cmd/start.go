@@ -93,7 +93,7 @@ func NewStartCmd() *cobra.Command {
 
 	cmd.Flags().BoolVarP(&force, "force", "f", false, "Stop any existing tracking session and start a new one")
 	cmd.Flags().BoolVar(&skipBackgroundTracker, "skip-background-tracker", false, "Skip starting the background tracker")
-	cmd.Flags().StringVarP(&category, "category", "k", "", "Category for this time entry (alphanumeric, underscore, hyphen only). Avoid shell special characters like ! $ ` \\")
+	cmd.Flags().StringVar(&category, "category", "", "Category for this time entry (alphanumeric, underscore, hyphen only)")
 
 	return cmd
 }
