@@ -24,5 +24,5 @@ hora status [flags]
 
 ### SEE ALSO
 
-* [hora](README.md)	 - Hora is a simple time tracking CLI tool
+* [hora](README.md)	 - hora is a simple time tracking CLI tool
 

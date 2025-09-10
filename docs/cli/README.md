@@ -1,10 +1,10 @@
 ## hora
 
-Hora is a simple time tracking CLI tool
+hora is a simple time tracking CLI tool
 
 ### Synopsis
 
-Hora is a simple command-line time tracking tool. Track your project time with ease.
+hora is a simple command-line time tracking tool. Track your project time with ease.
 
 ### Options
 
