@@ -18,6 +18,7 @@ func NewRootCmd() *cobra.Command {
 		Long:          `Hora is a simple command-line time tracking tool. Track your project time with ease.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
+		DisableAutoGenTag: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			var err error
 

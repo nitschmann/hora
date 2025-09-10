@@ -36,4 +36,12 @@ run:
 clean-all:
 	rm -f build/hora build/hora-*
 
-.PHONY: build build-all build-darwin build-linux clean test install-dependencies run
+docs:
+	@echo "Generating CLI documentation..."
+	@mkdir -p docs/cli
+	go run ./tools/gendocs
+
+clean-docs:
+	rm -rf docs/cli
+
+.PHONY: build build-all build-darwin build-linux clean test install-dependencies run docs clean-docs
