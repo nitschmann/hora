@@ -25,7 +25,7 @@ clean:
 	rm -f build/hora
 
 test:
-	go test ./...
+	go test -v ./...
 
 install-dependencies:
 	go install ./cmd/hora

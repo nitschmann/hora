@@ -13,11 +13,11 @@ var conf *config.Config
 
 func NewRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
-		Use:           "hora",
-		Short:         "Hora is a simple time tracking CLI tool",
-		Long:          `Hora is a simple command-line time tracking tool. Track your project time with ease.`,
-		SilenceUsage:  true,
-		SilenceErrors: true,
+		Use:               "hora",
+		Short:             "hora is a simple time tracking CLI tool",
+		Long:              `hora is a simple command-line time tracking tool. Track your project time with ease.`,
+		SilenceUsage:      true,
+		SilenceErrors:     true,
 		DisableAutoGenTag: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			var err error

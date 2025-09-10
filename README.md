@@ -1,4 +1,4 @@
-# Hora - Simple Time Tracking CLI
+# hora - Simple Time Tracking CLI
 
 A simple and intuitive command-line time tracking tool built with Go. Track your project time with ease using a clean CLI interface.
 
@@ -72,7 +72,9 @@ make clean
 
 ## Requirements
 
-- Go 1.21 or later
+(only for development)
+
+- Go 1.25 or later
 - SQLite3
 - macOS or Linux
 
@@ -80,6 +82,6 @@ make clean
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
-## 📄 License
+## License
 
 This project is open source and available under the MIT License.
