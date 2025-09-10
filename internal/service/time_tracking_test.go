@@ -155,6 +155,11 @@ func (m *MockTimeEntryRepo) GetTotalTimeByProjectIDOrName(ctx context.Context, p
 	return args.Get(0).(time.Duration), args.Error(1)
 }
 
+func (m *MockTimeEntryRepo) GetCategories(ctx context.Context) ([]string, error) {
+	args := m.Called(ctx)
+	return args.Get(0).([]string), args.Error(1)
+}
+
 type MockPauseRepo struct {
 	mock.Mock
 }
