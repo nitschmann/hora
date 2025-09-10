@@ -9,7 +9,11 @@ import (
 	"github.com/nitschmann/hora/internal/config"
 )
 
-var conf *config.Config
+var (
+	conf *config.Config
+	// Version is the current version of the cli application
+	Version string
+)
 
 func NewRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
@@ -62,6 +66,8 @@ func NewRootCmd() *cobra.Command {
 	rootCmd.AddCommand(NewStatusCmd())
 	rootCmd.AddCommand(NewTimesCmd())
 	rootCmd.AddCommand(NewExportCmd())
+	rootCmd.AddCommand(NewLogsCmd())
+	rootCmd.AddCommand(NewVersionCmd())
 	rootCmd.AddCommand(NewProjectCmd())
 
 	return rootCmd

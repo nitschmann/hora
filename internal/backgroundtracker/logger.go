@@ -1,6 +1,7 @@
 package backgroundtracker
 
 import (
+	"fmt"
 	"log/slog"
 	"os"
 	"os/user"
@@ -45,8 +46,23 @@ func initLogger() {
 	logger = slog.New(handler)
 }
 
-// LookupLogger returns the singleton logger instance for the background tracker
+// Logger returns the singleton logger instance for the background tracker
 func Logger() *slog.Logger {
 	once.Do(initLogger)
 	return logger
+}
+
+// GetLogPath returns the path to the used log file
+func GetLogPath() (string, error) {
+	if runtime.GOOS != "darwin" {
+		return "", fmt.Errorf("log path is only available on macOS")
+	}
+
+	usr, err := user.Current()
+	if err != nil {
+		return "", fmt.Errorf("failed to get current user: %w", err)
+	}
+
+	logDir := filepath.Join(usr.HomeDir, "Library", "Logs")
+	return filepath.Join(logDir, logFilename), nil
 }
