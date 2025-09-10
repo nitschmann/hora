@@ -151,3 +151,52 @@ func TestPauseIntegration(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, pauses, 1)
 }
+
+func TestTimeEntryCategoriesIntegration(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	projectRepo := NewProject(db)
+	timeEntryRepo := NewTimeEntry(db)
+	ctx := context.Background()
+
+	// Create a project
+	project, err := projectRepo.Create(ctx, "Test Project Categories")
+	require.NoError(t, err)
+
+	// Test with no categories
+	categories, err := timeEntryRepo.GetCategories(ctx)
+	require.NoError(t, err)
+	assert.Empty(t, categories)
+
+	// Create time entries with different categories
+	category1 := "development"
+	category2 := "testing"
+	category3 := "meeting"
+
+	_, err = timeEntryRepo.Create(ctx, project.ID, time.Now(), &category1)
+	require.NoError(t, err)
+
+	_, err = timeEntryRepo.Create(ctx, project.ID, time.Now(), &category2)
+	require.NoError(t, err)
+
+	_, err = timeEntryRepo.Create(ctx, project.ID, time.Now(), &category3)
+	require.NoError(t, err)
+
+	// Create entry with same category as first one
+	_, err = timeEntryRepo.Create(ctx, project.ID, time.Now(), &category1)
+	require.NoError(t, err)
+
+	// Create entry without category
+	_, err = timeEntryRepo.Create(ctx, project.ID, time.Now(), nil)
+	require.NoError(t, err)
+
+	// Test GetCategories
+	categories, err = timeEntryRepo.GetCategories(ctx)
+	require.NoError(t, err)
+
+	// Should return unique categories in alphabetical order
+	expected := []string{"development", "meeting", "testing"}
+	assert.Equal(t, expected, categories)
+	assert.Len(t, categories, 3)
+}
