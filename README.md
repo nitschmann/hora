@@ -16,6 +16,25 @@ A simple and intuitive command-line time tracking tool built with Go. Track your
 
 ### Installation
 
+#### Option 1: Pre-compiled Binaries (Recommended)
+
+Download the latest release binary for your platform from the [Releases page](https://github.com/nitschmann/hora/releases):
+
+- **macOS**: `hora-darwin-amd64` or `hora-darwin-arm64`
+- **Linux**: `hora-linux-amd64` or `hora-linux-arm64`
+
+```bash
+# Download and make executable (example for macOS ARM64)
+curl -L -o hora https://github.com/nitschmann/hora/releases/latest/download/hora-darwin-arm64
+chmod +x hora
+sudo mv hora /usr/local/bin/
+
+# Verify installation
+hora version
+```
+
+#### Option 2: Build from Source
+
 ```bash
 # Build from source
 make build

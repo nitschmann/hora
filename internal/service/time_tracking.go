@@ -27,6 +27,7 @@ type TimeTracking interface {
 	RemoveProject(ctx context.Context, idOrName string) error
 	PauseTracking(ctx context.Context) error
 	ContinueTracking(ctx context.Context) error
+	GetCategories(ctx context.Context) ([]string, error)
 	FormatDuration(duration time.Duration) string
 }
 
@@ -257,6 +258,11 @@ func (s *timeTracking) ContinueTracking(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// GetCategories returns all unique categories from time entries
+func (s *timeTracking) GetCategories(ctx context.Context) ([]string, error) {
+	return s.timeEntryRepo.GetCategories(ctx)
 }
 
 // FormatDuration formats a duration into HH:MM:SS format

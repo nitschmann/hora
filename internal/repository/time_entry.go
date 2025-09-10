@@ -47,6 +47,8 @@ type TimeEntry interface {
 	GetAllWithPauses(ctx context.Context, limit int, sortOrder string, since *time.Time) ([]TimeEntryWithPauses, error)
 	// GetAllWithPausesByCategory retrieves all time entries with pause information across all projects filtered by category
 	GetAllWithPausesByCategory(ctx context.Context, limit int, sortOrder string, since *time.Time, category *string) ([]TimeEntryWithPauses, error)
+	// GetCategories retrieves all unique categories from time entries
+	GetCategories(ctx context.Context) ([]string, error)
 	// GetAll retrieves all time entries with a limit
 	GetAll(ctx context.Context, limit int) ([]model.TimeEntry, error)
 	// DeleteByProject deletes all time entries for a specific project
@@ -832,4 +834,33 @@ func (r *timeEntry) GetAllWithPausesByCategory(ctx context.Context, limit int, s
 	defer rows.Close()
 
 	return r.scanTimeEntriesWithPauses(rows)
+}
+
+// GetCategories retrieves all unique categories from time entries
+func (r *timeEntry) GetCategories(ctx context.Context) ([]string, error) {
+	query, args, err := goqu.From(timeEntryTable).
+		Select(goqu.DISTINCT("category")).
+		Where(goqu.C("category").IsNotNull()).
+		Order(goqu.C("category").Asc()).
+		ToSQL()
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var categories []string
+	for rows.Next() {
+		var category string
+		if err := rows.Scan(&category); err != nil {
+			return nil, err
+		}
+		categories = append(categories, category)
+	}
+
+	return categories, rows.Err()
 }

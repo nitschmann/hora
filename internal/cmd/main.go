@@ -68,6 +68,7 @@ func NewRootCmd() *cobra.Command {
 	rootCmd.AddCommand(NewExportCmd())
 	rootCmd.AddCommand(NewLogsCmd())
 	rootCmd.AddCommand(NewVersionCmd())
+	rootCmd.AddCommand(NewCategoriesCmd())
 	rootCmd.AddCommand(NewProjectCmd())
 
 	return rootCmd
