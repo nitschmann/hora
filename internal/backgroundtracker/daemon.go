@@ -3,6 +3,7 @@ package backgroundtracker
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -19,23 +20,35 @@ func Daemonize() {
 	}
 
 	if os.Getenv("IS_DAEMON") != "1" {
+		binaryPath, err := exec.LookPath(os.Args[0])
+		if err != nil {
+			Logger().Error("Failed to find binary path", "err", err, "binary", os.Args[0])
+			os.Exit(1)
+		}
+
+		Logger().Info("Starting daemonization", "binary", binaryPath, "args", os.Args)
+
 		attr := &syscall.ProcAttr{
 			Files: []uintptr{0, 1, 2},
 			Env:   append(os.Environ(), "IS_DAEMON=1"),
 		}
-		pid, err := syscall.ForkExec(os.Args[0], os.Args, attr)
+		pid, err := syscall.ForkExec(binaryPath, os.Args, attr)
 		if err != nil {
-			Logger().Error("Failed to daemonize", "err", err)
+			Logger().Error("Failed to daemonize", "err", err, "binary", binaryPath)
 			os.Exit(1)
 		}
 
+		Logger().Info("Daemon started", "pid", pid)
+
 		// Parent: write PID file
 		if err := os.WriteFile(pidFile, []byte(strconv.Itoa(pid)), 0644); err != nil {
-			Logger().Error("Failed to write PID file", "err", err)
+			Logger().Error("Failed to write PID file", "err", err, "pidFile", pidFile)
 			os.Exit(1)
 		}
 
 		os.Exit(0)
+	} else {
+		Logger().Info("Running as daemon", "pid", os.Getpid())
 	}
 }
 

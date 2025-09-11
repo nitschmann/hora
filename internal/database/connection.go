@@ -53,7 +53,7 @@ func (c *Connection) Close() error {
 
 func setUpSQLiteDatabaseFile(databaseDir string) (string, error) {
 	if err := os.MkdirAll(databaseDir, 0755); err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to create database directory %s: %w", databaseDir, err)
 	}
 
 	_ = os.Remove(filepath.Join(databaseDir, databaseFileName+"-wal"))
