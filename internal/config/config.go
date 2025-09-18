@@ -77,20 +77,6 @@ func getDefaultDatabaseDir() (string, error) {
 	var databaseDir string
 
 	switch runtime.GOOS {
-	case "windows":
-		// Use AppData\Local on Windows
-		appData := os.Getenv("LOCALAPPDATA")
-		if appData == "" {
-			appData = os.Getenv("APPDATA")
-		}
-		if appData == "" {
-			homeDir, err := os.UserHomeDir()
-			if err != nil {
-				return "", err
-			}
-			appData = filepath.Join(homeDir, "AppData", "Local")
-		}
-		databaseDir = filepath.Join(appData, "hora")
 	case "darwin":
 		// Use ~/Library/Application Support on macOS
 		homeDir, err := os.UserHomeDir()
