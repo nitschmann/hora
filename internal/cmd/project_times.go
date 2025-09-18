@@ -115,9 +115,7 @@ func NewProjectTimesCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().IntVarP(&limit, "limit", "l", 50, "Maximum number of entries to show")
-	cmd.Flags().StringVarP(&sort, "sort", "s", "desc", "Sort order: 'asc' (oldest first) or 'desc' (newest first)")
-	cmd.Flags().StringVar(&since, "since", "", "Only show entries since this date (YYYY-MM-DD format)")
+	addListCommandCommonFlags(cmd, &limit, &since, &sort)
 
 	return cmd
 }

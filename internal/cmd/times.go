@@ -13,6 +13,7 @@ import (
 func NewTimesCmd() *cobra.Command {
 	var (
 		category string
+		limit    int
 		since    string
 		sort     string
 	)
@@ -22,13 +23,9 @@ func NewTimesCmd() *cobra.Command {
 		Short: "List all time entries across all projects",
 		Long:  `List all time entries across all projects, showing start time, end time, duration, and project information.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
+			var err error
 
-			// Get the limit from command flags
-			limit, err := cmd.Flags().GetInt("limit")
-			if err != nil {
-				return fmt.Errorf("failed to get limit flag: %w", err)
-			}
+			ctx := cmd.Context()
 
 			if sort != "asc" && sort != "desc" {
 				return fmt.Errorf("sort order must be 'asc' or 'desc', got: %s", sort)
@@ -130,10 +127,9 @@ func NewTimesCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&category, "category", "", "Filter by category (avoid shell special characters like ! $ ` \\")
-	cmd.Flags().IntP("limit", "l", 50, "Maximum number of entries to show")
-	cmd.Flags().StringVar(&since, "since", "", "Only show entries since this date (YYYY-MM-DD format)")
-	cmd.Flags().StringVarP(&sort, "sort", "s", "desc", "Sort order: 'asc' (oldest first) or 'desc' (newest first)")
+	addListCommandCommonFlags(cmd, &limit, &since, &sort)
+
+	cmd.Flags().StringVar(&category, "category", "", "Filter by category (avoid shell special characters like ! $ ` \\)")
 
 	return cmd
 }

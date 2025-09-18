@@ -21,6 +21,7 @@ var (
 
 	defaultDebug                = false
 	defaultListLimit            = 50
+	defaultListOrder            = "desc"
 	defaultUseBackgroundTracker = true
 )
 
@@ -29,6 +30,7 @@ type Config struct {
 	DatabaseDir string `mapstructure:"database_dir" yaml:"database_dir"`
 	Debug       bool   `mapstructure:"debug" yaml:"debug"`
 	ListLimit   int    `mapstructure:"list_limit" yaml:"list_limit"`
+	ListOrder   string `mapstructure:"list_order" yaml:"list_order"`
 	// UseBackgroundTracker enables or disables the background tracker feature, which checks screen locks and (un)pauses time tracking based on these (macOS only for now)
 	UseBackgroundTracker bool `mapstructure:"use_background_tracker" yaml:"use_background_tracker"`
 }
@@ -40,9 +42,11 @@ func Load(configFile string) (*Config, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
+
 	viper.SetDefault("database_dir", defaultDatabaseDir)
 	viper.SetDefault("debug", defaultDebug)
 	viper.SetDefault("list_limit", defaultListLimit)
+	viper.SetDefault("list_order", defaultListOrder)
 	viper.SetDefault("use_background_tracker", defaultUseBackgroundTracker)
 
 	viper.SetConfigType("yaml")

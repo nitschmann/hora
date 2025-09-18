@@ -49,9 +49,8 @@ func NewProjectExportTimesCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().IntP("limit", "l", 50, "Maximum number of entries to show")
-	cmd.Flags().StringVar(&since, "since", "", "Only show entries since this date (YYYY-MM-DD format)")
-	cmd.Flags().StringVarP(&sort, "sort", "s", "desc", "Sort order: 'asc' (oldest first) or 'desc' (newest first)")
+	addListCommandCommonFlags(cmd, &limit, &since, &sort)
+
 	cmd.Flags().StringVarP(&output, "output", "o", "", "Output file path (default: TIMESTAMP_PROJECT_times.csv)")
 
 	return cmd

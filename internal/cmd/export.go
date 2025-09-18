@@ -13,6 +13,7 @@ import (
 func NewExportCmd() *cobra.Command {
 	var (
 		category string
+		limit    int
 		since    string
 		sort     string
 		output   string
@@ -23,14 +24,13 @@ func NewExportCmd() *cobra.Command {
 		Short: "Export time entries to CSV",
 		Long:  "Export all time entries across projects to a CSV file",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			var (
+				err       error
+				sinceTime *time.Time
+			)
+
 			ctx := context.Background()
 
-			limit, err := cmd.Flags().GetInt("limit")
-			if err != nil {
-				return fmt.Errorf("failed to get limit flag: %w", err)
-			}
-
-			var sinceTime *time.Time
 			if since != "" {
 				parsed, err := time.Parse("2006-01-02", since)
 				if err != nil {
@@ -68,10 +68,9 @@ func NewExportCmd() *cobra.Command {
 		},
 	}
 
+	addListCommandCommonFlags(cmd, &limit, &since, &sort)
+
 	cmd.Flags().StringVar(&category, "category", "", "Filter by category")
-	cmd.Flags().IntP("limit", "l", 50, "Maximum number of entries to show")
-	cmd.Flags().StringVar(&since, "since", "", "Only show entries since this date (YYYY-MM-DD format)")
-	cmd.Flags().StringVarP(&sort, "sort", "s", "desc", "Sort order: 'asc' (oldest first) or 'desc' (newest first)")
 	cmd.Flags().StringVarP(&output, "output", "o", "", "Output file path (default: TIMESTAMP_times.csv)")
 
 	return cmd

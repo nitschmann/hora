@@ -10,9 +10,22 @@ import (
 )
 
 var (
-	conf *config.Config
+	conf               *config.Config
+	usedConfigFilepath string
 	// Version is the current version of the cli application
 	Version string
+
+	_ = func() error {
+		_conf, _ususedConfigFilepath, err := config.Load("")
+		if err != nil {
+			printCLIErrorAndExit(fmt.Errorf("failed to load config: %w", err))
+		}
+
+		conf = _conf
+		usedConfigFilepath = _ususedConfigFilepath
+
+		return nil
+	}()
 )
 
 func NewRootCmd() *cobra.Command {
@@ -26,14 +39,16 @@ func NewRootCmd() *cobra.Command {
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			var err error
 
-			configFile, err := cmd.Flags().GetString("config")
+			configFileFlagValue, err := cmd.Flags().GetString("config")
 			if err != nil {
 				return fmt.Errorf("failed to get config flag: %w", err)
 			}
 
-			conf, _, err = config.Load(configFile)
-			if err != nil {
-				return fmt.Errorf("failed to load config: %w", err)
+			if configFileFlagValue != "" && configFileFlagValue != usedConfigFilepath {
+				conf, usedConfigFilepath, err = config.Load(configFileFlagValue)
+				if err != nil {
+					return fmt.Errorf("failed to load config: %w", err)
+				}
 			}
 
 			err = initDatabaseConnectionAndService()
