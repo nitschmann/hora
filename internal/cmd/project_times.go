@@ -40,12 +40,12 @@ func NewProjectTimesCmd() *cobra.Command {
 
 			project, err := timeService.GetProjectByIDOrName(ctx, projectIDOrName)
 			if err != nil {
-				return fmt.Errorf("failed to get project: %w", err)
+				return fmt.Errorf("failed to get project: %w", mapCmdError(err))
 			}
 
 			entries, err := timeService.GetEntriesForProjectWithPauses(ctx, projectIDOrName, limit, sort, sinceTime)
 			if err != nil {
-				return fmt.Errorf("failed to get time entries: %w", err)
+				return fmt.Errorf("failed to get time entries: %w", mapCmdError(err))
 			}
 
 			if len(entries) == 0 {
@@ -115,9 +115,7 @@ func NewProjectTimesCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().IntVarP(&limit, "limit", "l", 50, "Maximum number of entries to show")
-	cmd.Flags().StringVarP(&sort, "sort", "s", "desc", "Sort order: 'asc' (oldest first) or 'desc' (newest first)")
-	cmd.Flags().StringVar(&since, "since", "", "Only show entries since this date (YYYY-MM-DD format)")
+	addListCommandCommonFlags(cmd, &limit, &since, &sort)
 
 	return cmd
 }

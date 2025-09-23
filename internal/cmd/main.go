@@ -10,9 +10,22 @@ import (
 )
 
 var (
-	conf *config.Config
+	conf               *config.Config
+	usedConfigFilepath string
 	// Version is the current version of the cli application
 	Version string
+
+	_ = func() error {
+		_conf, _usedConfigFilepath, err := config.Load("")
+		if err != nil {
+			mapCmdErrorAndExit(fmt.Errorf("failed to load config: %w", err))
+		}
+
+		conf = _conf
+		usedConfigFilepath = _usedConfigFilepath
+
+		return nil
+	}()
 )
 
 func NewRootCmd() *cobra.Command {
@@ -26,14 +39,16 @@ func NewRootCmd() *cobra.Command {
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			var err error
 
-			configFile, err := cmd.Flags().GetString("config")
+			configFileFlagValue, err := cmd.Flags().GetString("config")
 			if err != nil {
 				return fmt.Errorf("failed to get config flag: %w", err)
 			}
 
-			conf, _, err = config.Load(configFile)
-			if err != nil {
-				return fmt.Errorf("failed to load config: %w", err)
+			if configFileFlagValue != "" && configFileFlagValue != usedConfigFilepath {
+				conf, usedConfigFilepath, err = config.Load(configFileFlagValue)
+				if err != nil {
+					return fmt.Errorf("failed to load config: %w", err)
+				}
 			}
 
 			err = initDatabaseConnectionAndService()
@@ -58,17 +73,18 @@ func NewRootCmd() *cobra.Command {
 
 	rootCmd.PersistentFlags().StringP("config", "c", "", "Path to configuration file")
 
-	rootCmd.AddCommand(NewDeleteAllCmd())
+	rootCmd.AddCommand(NewCategoriesCmd())
 	rootCmd.AddCommand(NewContinueCmd())
+	rootCmd.AddCommand(NewConfigCmd())
+	rootCmd.AddCommand(NewDeleteAllCmd())
+	rootCmd.AddCommand(NewExportCmd())
 	rootCmd.AddCommand(NewStartCmd())
 	rootCmd.AddCommand(NewStopCmd())
 	rootCmd.AddCommand(NewPauseCmd())
 	rootCmd.AddCommand(NewStatusCmd())
 	rootCmd.AddCommand(NewTimesCmd())
-	rootCmd.AddCommand(NewExportCmd())
 	rootCmd.AddCommand(NewLogsCmd())
 	rootCmd.AddCommand(NewVersionCmd())
-	rootCmd.AddCommand(NewCategoriesCmd())
 	rootCmd.AddCommand(NewProjectCmd())
 
 	return rootCmd

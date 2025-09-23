@@ -17,7 +17,7 @@ func main() {
 	rootCmd := cmd.NewRootCmd()
 	err := rootCmd.ExecuteContext(ctx)
 	if err != nil {
-		fmt.Printf("Error: %+v\n", err)
+		fmt.Printf("%+v\n", err)
 		os.Exit(1)
 	}
 }

@@ -33,13 +33,13 @@ func NewProjectTotalCmd() *cobra.Command {
 			// First check if the project exists
 			project, err := timeService.GetProjectByIDOrName(ctx, projectIDOrName)
 			if err != nil {
-				return fmt.Errorf("failed to get project: %w", err)
+				return fmt.Errorf("failed to get project: %w", mapCmdError(err))
 			}
 
 			// Get total time for the project
 			totalTime, err := timeService.GetTotalTimeForProject(ctx, projectIDOrName, sinceTime)
 			if err != nil {
-				return fmt.Errorf("failed to get total time: %w", err)
+				return fmt.Errorf("failed to get total time: %w", mapCmdError(err))
 			}
 
 			table := tablewriter.NewTable(cmd.OutOrStdout())

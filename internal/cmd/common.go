@@ -12,6 +12,7 @@ import (
 	"github.com/nitschmann/hora/internal/database"
 	"github.com/nitschmann/hora/internal/repository"
 	"github.com/nitschmann/hora/internal/service"
+	"github.com/spf13/cobra"
 )
 
 var (
@@ -19,6 +20,18 @@ var (
 	timeService service.TimeTracking
 )
 
+// addListCommandCommonFlags adds common flags for lists to the given cobra command
+func addListCommandCommonFlags(cmd *cobra.Command,
+	limitVar *int,
+	sinceVar *string,
+	sortVar *string,
+) {
+	cmd.Flags().IntVarP(limitVar, "limit", "l", conf.ListLimit, "Maximum number of entries to show")
+	cmd.Flags().StringVar(sinceVar, "since", "", "Only show entries since this date (YYYY-MM-DD format)")
+	cmd.Flags().StringVar(sortVar, "sort", conf.ListOrder, "Sort order: 'asc' (oldest first) or 'desc' (newest first)")
+}
+
+// exportTimesToCSV exports the given time entries to a CSV file with the specified filename
 func exportTimesToCSV(entries []repository.TimeEntryWithPauses, filename string, project string) (string, error) {
 	if filename == "" {
 		timestamp := time.Now().Format("20060102150405")
@@ -117,29 +130,6 @@ func formatDateInLocal(t time.Time) string {
 	return t.Local().Format("2006-01-02")
 }
 
-// validateCategory validates that a category contains only alphanumeric characters, underscores, and hyphens
-func validateCategory(category string) error {
-	if category == "" {
-		return nil
-	}
-
-	// Check for common shell special characters that might cause issues
-	if strings.ContainsAny(category, "!$`\\") {
-		return fmt.Errorf("category contains shell special characters (!$`\\) that may cause issues. Use only alphanumeric characters, underscores (_), and hyphens (-)")
-	}
-
-	matched, err := regexp.MatchString(`^[a-zA-Z0-9_-]+$`, category)
-	if err != nil {
-		return fmt.Errorf("failed to validate category: %w", err)
-	}
-
-	if !matched {
-		return fmt.Errorf("category must contain only alphanumeric characters, underscores (_), and hyphens (-)")
-	}
-
-	return nil
-}
-
 // formatDuration formats a duration as HH:MM:SS
 func formatDuration(d time.Duration) string {
 	hours := int(d.Hours())
@@ -163,4 +153,27 @@ func initDatabaseConnectionAndService() error {
 	timeService = service.NewTimeTracking(projectRepo, timeEntryRepo, pauseRepo)
 
 	return err
+}
+
+// validateCategory validates that a category contains only alphanumeric characters, underscores, and hyphens
+func validateCategory(category string) error {
+	if category == "" {
+		return nil
+	}
+
+	// Check for common shell special characters that might cause issues
+	if strings.ContainsAny(category, "!$`\\") {
+		return fmt.Errorf("category contains shell special characters (!$`\\) that may cause issues. Use only alphanumeric characters, underscores (_), and hyphens (-)")
+	}
+
+	matched, err := regexp.MatchString(`^[a-zA-Z0-9_-]+$`, category)
+	if err != nil {
+		return fmt.Errorf("failed to validate category: %w", err)
+	}
+
+	if !matched {
+		return fmt.Errorf("category must contain only alphanumeric characters, underscores (_), and hyphens (-)")
+	}
+
+	return nil
 }
