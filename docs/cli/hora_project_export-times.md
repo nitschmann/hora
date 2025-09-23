@@ -17,7 +17,7 @@ hora project export-times [project] [flags]
   -l, --limit int       Maximum number of entries to show (default 50)
   -o, --output string   Output file path (default: TIMESTAMP_PROJECT_times.csv)
       --since string    Only show entries since this date (YYYY-MM-DD format)
-  -s, --sort string     Sort order: 'asc' (oldest first) or 'desc' (newest first) (default "desc")
+      --sort string     Sort order: 'asc' (oldest first) or 'desc' (newest first) (default "desc")
 ```
 
 ### Options inherited from parent commands
