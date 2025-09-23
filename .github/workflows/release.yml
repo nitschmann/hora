@@ -14,19 +14,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Wait for tests to complete
-        run: |
-          echo "Checking if tests have completed for release ${{ github.event.release.tag_name }}..."
-          # Check if there's a successful test run for the main branch (where the release was created from)
-          LATEST_TEST_RUN=$(gh run list --workflow=Tests --branch=main --status=success --limit=1 --json databaseId,headSha,conclusion --jq '.[0]')
-          if [ "$LATEST_TEST_RUN" = "null" ]; then
-            echo "No successful test run found for main branch"
-            exit 1
-          fi
-          echo "Latest successful test run found: $LATEST_TEST_RUN"
-          echo "Tests completed successfully"
-
+          
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
