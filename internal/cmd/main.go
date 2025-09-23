@@ -18,7 +18,7 @@ var (
 	_ = func() error {
 		_conf, _ususedConfigFilepath, err := config.Load("")
 		if err != nil {
-			printCLIErrorAndExit(fmt.Errorf("failed to load config: %w", err))
+			mapCmdErrorAndExit(fmt.Errorf("failed to load config: %w", err))
 		}
 
 		conf = _conf

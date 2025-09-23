@@ -16,12 +16,7 @@ func NewStatusCmd() *cobra.Command {
 			ctx := cmd.Context()
 			activeEntry, err := timeService.GetActiveEntry(ctx)
 			if err != nil {
-				return fmt.Errorf("failed to get active entry: %w", err)
-			}
-
-			if activeEntry == nil {
-				fmt.Println("No active time tracking session.")
-				return nil
+				return fmt.Errorf("failed to get active time entry: %w", mapCmdError(err))
 			}
 
 			// Calculate current duration

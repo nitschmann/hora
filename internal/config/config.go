@@ -1,11 +1,16 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 
+	"github.com/go-playground/locales/en"
+	ut "github.com/go-playground/universal-translator"
+	"github.com/go-playground/validator/v10"
+	en_translations "github.com/go-playground/validator/v10/translations/en"
 	"github.com/spf13/viper"
 )
 
@@ -23,14 +28,16 @@ var (
 	defaultListLimit            = 50
 	defaultListOrder            = "desc"
 	defaultUseBackgroundTracker = true
+
+	validationTranslator ut.Translator
 )
 
 type Config struct {
 	// DatabaseDir specifies the directory where the SQLite database file is stored
 	DatabaseDir string `mapstructure:"database_dir" yaml:"database_dir"`
 	Debug       bool   `mapstructure:"debug" yaml:"debug"`
-	ListLimit   int    `mapstructure:"list_limit" yaml:"list_limit"`
-	ListOrder   string `mapstructure:"list_order" yaml:"list_order"`
+	ListLimit   int    `mapstructure:"list_limit" yaml:"list_limit" validate:"gte=1"`
+	ListOrder   string `mapstructure:"list_order" yaml:"list_order" validate:"oneof=asc desc"`
 	// UseBackgroundTracker enables or disables the background tracker feature, which checks screen locks and (un)pauses time tracking based on these (macOS only for now)
 	UseBackgroundTracker bool `mapstructure:"use_background_tracker" yaml:"use_background_tracker"`
 }
@@ -73,6 +80,14 @@ func Load(configFile string) (*Config, string, error) {
 	}
 
 	err = viper.Unmarshal(&cfg)
+	if err != nil {
+		return nil, "", err
+	}
+
+	err = validateConfig(&cfg)
+	if err != nil {
+		return nil, "", err
+	}
 
 	return &cfg, viper.ConfigFileUsed(), err
 }
@@ -115,4 +130,35 @@ func getDefaultDatabaseDir() (string, error) {
 	}
 
 	return databaseDir, nil
+}
+
+func validateConfig(cfg *Config) error {
+	en := en.New()
+	uni := ut.New(en, en)
+	validationTranslator, _ = uni.GetTranslator("en")
+
+	validate := validator.New()
+	err := en_translations.RegisterDefaultTranslations(validate, validationTranslator)
+	if err != nil {
+		return err
+	}
+
+	err = validate.Struct(cfg)
+	if err != nil {
+		validationErros := err.(validator.ValidationErrors)
+		errorCount := len(validationErros)
+		validationErrrorMessages := make([]string, len(validationErros))
+
+		for _, e := range validationErros {
+			validationErrrorMessages = append(validationErrrorMessages, e.Translate(validationTranslator))
+		}
+
+		if errorCount == 1 {
+			return fmt.Errorf("configuration validation error\n%s\n", strings.Join(validationErrrorMessages, "\n"))
+		} else {
+			return fmt.Errorf("configuration validation errors\n%s\n", strings.Join(validationErrrorMessages, "\n"))
+		}
+	}
+
+	return nil
 }

@@ -155,14 +155,6 @@ func initDatabaseConnectionAndService() error {
 	return err
 }
 
-// printCLIErrorAndExit prints an error message to the console and exits with status code 1
-func printCLIErrorAndExit(err error) {
-	// TODO: distinguish between different error types and print user-friendly messages
-	fmt.Printf("An unexpected error occurred:\n%v\n", err.Error())
-
-	os.Exit(1)
-}
-
 // validateCategory validates that a category contains only alphanumeric characters, underscores, and hyphens
 func validateCategory(category string) error {
 	if category == "" {
