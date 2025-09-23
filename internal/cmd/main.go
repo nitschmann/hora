@@ -16,13 +16,13 @@ var (
 	Version string
 
 	_ = func() error {
-		_conf, _ususedConfigFilepath, err := config.Load("")
+		_conf, _usedConfigFilepath, err := config.Load("")
 		if err != nil {
 			mapCmdErrorAndExit(fmt.Errorf("failed to load config: %w", err))
 		}
 
 		conf = _conf
-		usedConfigFilepath = _ususedConfigFilepath
+		usedConfigFilepath = _usedConfigFilepath
 
 		return nil
 	}()

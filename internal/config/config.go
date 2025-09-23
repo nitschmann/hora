@@ -28,8 +28,6 @@ var (
 	defaultListLimit            = 50
 	defaultListOrder            = "desc"
 	defaultUseBackgroundTracker = true
-
-	validationTranslator ut.Translator
 )
 
 type Config struct {
@@ -135,7 +133,7 @@ func getDefaultDatabaseDir() (string, error) {
 func validateConfig(cfg *Config) error {
 	en := en.New()
 	uni := ut.New(en, en)
-	validationTranslator, _ = uni.GetTranslator("en")
+	validationTranslator, _ := uni.GetTranslator("en")
 
 	validate := validator.New()
 	err := en_translations.RegisterDefaultTranslations(validate, validationTranslator)
@@ -145,18 +143,18 @@ func validateConfig(cfg *Config) error {
 
 	err = validate.Struct(cfg)
 	if err != nil {
-		validationErros := err.(validator.ValidationErrors)
-		errorCount := len(validationErros)
-		validationErrrorMessages := make([]string, len(validationErros))
+		validationErrors := err.(validator.ValidationErrors)
+		errorCount := len(validationErrors)
+		validationErrorMessages := make([]string, len(validationErrors))
 
-		for _, e := range validationErros {
-			validationErrrorMessages = append(validationErrrorMessages, e.Translate(validationTranslator))
+		for _, e := range validationErrors {
+			validationErrorMessages = append(validationErrorMessages, e.Translate(validationTranslator))
 		}
 
 		if errorCount == 1 {
-			return fmt.Errorf("configuration validation error\n%s\n", strings.Join(validationErrrorMessages, "\n"))
+			return fmt.Errorf("configuration validation error\n%s\n", strings.Join(validationErrorMessages, "\n"))
 		} else {
-			return fmt.Errorf("configuration validation errors\n%s\n", strings.Join(validationErrrorMessages, "\n"))
+			return fmt.Errorf("configuration validation errors\n%s\n", strings.Join(validationErrorMessages, "\n"))
 		}
 	}
 
