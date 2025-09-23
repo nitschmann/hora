@@ -1,3 +1,5 @@
+[![Tests](https://github.com/nitschmann/hora/actions/workflows/test.yml/badge.svg)](https://github.com/nitschmann/hora/actions/workflows/test.yml)
+
 # hora - Simple Time Tracking CLI
 
 A simple and intuitive command-line time tracking tool built with Go. Track your project time with ease using a clean CLI interface.
