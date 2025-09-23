@@ -73,17 +73,18 @@ func NewRootCmd() *cobra.Command {
 
 	rootCmd.PersistentFlags().StringP("config", "c", "", "Path to configuration file")
 
-	rootCmd.AddCommand(NewDeleteAllCmd())
+	rootCmd.AddCommand(NewCategoriesCmd())
 	rootCmd.AddCommand(NewContinueCmd())
+	rootCmd.AddCommand(NewConfigCmd())
+	rootCmd.AddCommand(NewDeleteAllCmd())
+	rootCmd.AddCommand(NewExportCmd())
 	rootCmd.AddCommand(NewStartCmd())
 	rootCmd.AddCommand(NewStopCmd())
 	rootCmd.AddCommand(NewPauseCmd())
 	rootCmd.AddCommand(NewStatusCmd())
 	rootCmd.AddCommand(NewTimesCmd())
-	rootCmd.AddCommand(NewExportCmd())
 	rootCmd.AddCommand(NewLogsCmd())
 	rootCmd.AddCommand(NewVersionCmd())
-	rootCmd.AddCommand(NewCategoriesCmd())
 	rootCmd.AddCommand(NewProjectCmd())
 
 	return rootCmd

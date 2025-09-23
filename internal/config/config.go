@@ -4,17 +4,17 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/spf13/viper"
 )
 
 var (
-	FileName = "config"
+	FileName = "config.yaml"
 	// ConfigLookupPaths defines the paths where the configuration file is looked up
 	LookupPaths = []string{
-		"./.hora",
-		"$HOME/.hora",
 		"~/.hora",
+		"./.hora",
 	}
 
 	cfg Config
@@ -55,7 +55,11 @@ func Load(configFile string) (*Config, string, error) {
 		viper.SetConfigFile(configFile)
 	} else {
 		for _, path := range LookupPaths {
-			viper.AddConfigPath(os.ExpandEnv(path))
+			expandedPath, err := expandPath(path)
+			if err != nil {
+				return nil, "", err
+			}
+			viper.AddConfigPath(expandedPath)
 		}
 		viper.SetConfigName(FileName)
 	}
@@ -71,6 +75,23 @@ func Load(configFile string) (*Config, string, error) {
 	err = viper.Unmarshal(&cfg)
 
 	return &cfg, viper.ConfigFileUsed(), err
+}
+
+// expandPath expands the ~ in the given path to the user's home directory
+func expandPath(path string) (string, error) {
+	if strings.HasPrefix(path, "~") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", err
+		}
+		if path == "~" {
+			return home, nil
+		}
+
+		return filepath.Join(home, path[1:]), nil
+	}
+
+	return path, nil
 }
 
 func getDefaultDatabaseDir() (string, error) {
