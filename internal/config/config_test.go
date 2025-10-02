@@ -221,6 +221,7 @@ func TestValidateConfig_WithValidConfig(t *testing.T) {
 		ListLimit:            100,
 		ListOrder:            "asc",
 		UseBackgroundTracker: false,
+		WebUIPort:            3000,
 	}
 
 	err := validateConfig(cfg)

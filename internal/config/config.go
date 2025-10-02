@@ -28,6 +28,7 @@ var (
 	defaultListLimit            = 50
 	defaultListOrder            = "desc"
 	defaultUseBackgroundTracker = true
+	defaultWebUIPort            = 8080
 )
 
 type Config struct {
@@ -38,6 +39,7 @@ type Config struct {
 	ListOrder   string `mapstructure:"list_order" yaml:"list_order" validate:"oneof=asc desc"`
 	// UseBackgroundTracker enables or disables the background tracker feature, which checks screen locks and (un)pauses time tracking based on these (macOS only for now)
 	UseBackgroundTracker bool `mapstructure:"use_background_tracker" yaml:"use_background_tracker"`
+	WebUIPort            int  `mapstructure:"web_ui_port" yaml:"web_ui_port" validate:"gte=1,lte=65535"`
 }
 
 // Load loads the configuration from the specified file or default locations.
@@ -53,6 +55,7 @@ func Load(configFile string) (*Config, string, error) {
 	viper.SetDefault("list_limit", defaultListLimit)
 	viper.SetDefault("list_order", defaultListOrder)
 	viper.SetDefault("use_background_tracker", defaultUseBackgroundTracker)
+	viper.SetDefault("web_ui_port", defaultWebUIPort)
 
 	viper.SetConfigType("yaml")
 
