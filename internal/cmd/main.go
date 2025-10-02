@@ -84,6 +84,7 @@ func NewRootCmd() *cobra.Command {
 	rootCmd.AddCommand(NewStatusCmd())
 	rootCmd.AddCommand(NewTimesCmd())
 	rootCmd.AddCommand(NewLogsCmd())
+	rootCmd.AddCommand(NewUICommand())
 	rootCmd.AddCommand(NewVersionCmd())
 	rootCmd.AddCommand(NewProjectCmd())
 
