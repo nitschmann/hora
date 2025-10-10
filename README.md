@@ -12,6 +12,7 @@ A simple and intuitive command-line time tracking tool built with Go. Track your
 - **Data Export** - Export time entries to CSV for further analysis
 - **Category Support** - Organize time entries with custom categories
 - **Rich Reporting** - View detailed time reports with pause information
+- **Web Dashboard** - Interactive web UI with charts, analytics, and filtering
 - **Cross-Platform** - Works on macOS and Linux
 
 ## Quick Start
@@ -62,6 +63,12 @@ hora times
 
 # Export to CSV
 hora export --output times.csv
+
+# Launch web dashboard
+hora ui
+
+# Launch web dashboard on custom port
+hora ui --port 3000
 ```
 
 ## Configuration
@@ -123,6 +130,50 @@ hora --config /path/to/custom/config.yaml start "My Project"
 # Or use the short form
 hora -c /path/to/custom/config.yaml start "My Project"
 ```
+
+## Web Dashboard
+
+hora includes a modern web dashboard that provides interactive analytics and visualization of your time tracking data. The dashboard offers a comprehensive view of your productivity patterns with beautiful charts and filtering capabilities.
+
+### Starting the Web Dashboard
+
+```bash
+# Start the web dashboard on default port (8080)
+hora ui
+
+# Start on a custom port
+hora ui --port 3000
+
+# The dashboard will be available at http://localhost:8080 (or your custom port)
+```
+
+### Dashboard Features
+
+#### Interactive Analytics
+- **Daily Activity Chart** - Visualize your daily time tracking patterns
+- **Project Distribution** - See how your time is distributed across projects
+- **Category Breakdown** - Analyze time spent in different categories
+- **Time Range Filtering** - View data for last 24hrs, 3 days, 7 days, 30 days, or all time
+
+#### Key Metrics
+- **Total Hours** - Cumulative time tracked
+- **Project Count** - Number of active projects
+- **Category Count** - Number of categories used
+- **Time Entries** - Total number of tracking sessions
+- **Average Session** - Average duration per tracking session
+
+#### Advanced Filtering
+
+- **Project Filtering** - Click on any project in charts or entries to filter by project
+- **Category Filtering** - Click on any category to filter by category
+- **URL Parameters** - Share filtered views with direct links
+- **Clear Filters** - Reset all filters with one click
+
+#### Recent Entries
+- **Live Time Entries** - View all your recent time tracking sessions
+- **Interactive Elements** - Click on projects or categories to filter
+- **Duration Display** - See exact time spent on each session
+- **Date & Time** - Full timestamp information for each entry
 
 ## Documentation
 

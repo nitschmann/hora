@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>hora Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #ffffff;
+      min-height: 100vh;
+      color: #333;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 40px;
+      color: #2d3748;
+    }
+
+    .header h1 {
+      font-size: 3rem;
+      margin-bottom: 10px;
+      color: #1a202c;
+      font-weight: 600;
+    }
+
+    .header p {
+      font-size: 1.2rem;
+      color: #4a5568;
+    }
+
+    .timeframe-selector {
+      margin-top: 20px;
+    }
+
+    .timeframe-selector label {
+      color: #4a5568;
+      margin-right: 10px;
+      font-size: 1rem;
+      font-weight: 500;
+    }
+
+    .timeframe-selector select {
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 2px solid #e2e8f0;
+      background: white;
+      color: #333;
+      font-size: 1rem;
+      cursor: pointer;
+      margin-right: 10px;
+      transition: border-color 0.2s;
+    }
+
+    .timeframe-selector select:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    .timeframe-selector button {
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: none;
+      background: #ff6b6b;
+      color: white;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+
+    .timeframe-selector button:hover {
+      background: #ff5252;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+      margin-bottom: 40px;
+    }
+
+    .stat-card {
+      background: white;
+      border-radius: 15px;
+      padding: 25px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      border: 1px solid #f1f5f9;
+      text-align: center;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+    }
+
+    .stat-number {
+      font-size: 2.5rem;
+      font-weight: bold;
+      color: #667eea;
+      margin-bottom: 10px;
+    }
+
+    .stat-label {
+      color: #666;
+      font-size: 1rem;
+    }
+
+    .charts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+      gap: 30px;
+      margin-bottom: 40px;
+    }
+
+    .chart-container {
+      background: white;
+      border-radius: 15px;
+      padding: 25px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      border: 1px solid #f1f5f9;
+      transition: box-shadow 0.3s ease;
+    }
+
+    .chart-container:hover {
+      box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+    }
+
+    .chart-title {
+      font-size: 1.5rem;
+      margin-bottom: 20px;
+      color: #333;
+      text-align: center;
+    }
+
+    .chart-wrapper {
+      position: relative;
+      height: 400px;
+    }
+
+    .recent-entries {
+      background: white;
+      border-radius: 15px;
+      padding: 25px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      border: 1px solid #f1f5f9;
+    }
+
+    .recent-entries h2 {
+      margin-bottom: 20px;
+      color: #333;
+    }
+
+    .entry-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px;
+      border-bottom: 1px solid #eee;
+      transition: background-color 0.2s ease;
+    }
+
+    .entry-item:hover {
+      background-color: #f8f9fa;
+    }
+
+    .entry-item:last-child {
+      border-bottom: none;
+    }
+
+    .entry-project {
+      font-weight: bold;
+      color: #667eea;
+    }
+
+    .clickable-project {
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    .clickable-project:hover {
+      color: #5a67d8;
+    }
+
+    .clickable-category {
+      cursor: pointer;
+      text-decoration: underline;
+      color: #667eea;
+    }
+
+    .clickable-category:hover {
+      color: #5a67d8;
+    }
+
+    .entry-duration {
+      color: #666;
+      font-family: monospace;
+    }
+
+    .entry-date {
+      color: #999;
+      font-size: 0.9rem;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: white;
+      font-size: 1.2rem;
+    }
+
+    .error {
+      background: #ff6b6b;
+      color: white;
+      padding: 20px;
+      border-radius: 10px;
+      margin: 20px 0;
+      text-align: center;
+    }
+
+    .filter-indicator {
+      background: #f7fafc;
+      color: #2d3748;
+      padding: 15px 20px;
+      border-radius: 10px;
+      margin: 20px 0;
+      text-align: center;
+      font-size: 1.1rem;
+      border: 1px solid #e2e8f0;
+      border-left: 4px solid #667eea;
+    }
+
+    @media (max-width: 768px) {
+      .charts-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .header h1 {
+        font-size: 2rem;
+      }
+      
+      .container {
+        padding: 10px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>⏰ Hora Dashboard</h1>
+      <p>Your Time Tracking Analytics</p>
+      
+      <div class="timeframe-selector">
+        <label for="timeframe">Time Range:</label>
+        <select id="timeframe" onchange="changeTimeframe()">
+          <option value="1">Last 24hrs</option>
+          <option value="3">Last 3 days</option>
+          <option value="7" selected>Last 7 days</option>
+          <option value="30">Last 30 days</option>
+          <option value="0">All time</option>
+        </select>
+        <button id="clearFilters" onclick="clearFilters()" style="display: none;">Clear Filters</button>
+      </div>
+    </div>
+
+    <div id="loading" class="loading">
+      Loading your time tracking data...
+    </div>
+
+    <div id="error" class="error" style="display: none;"></div>
+
+    <div id="filterIndicator" class="filter-indicator" style="display: none;">
+      <span id="filterText"></span>
+    </div>
+
+    <div id="dashboard" style="display: none;">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-number" id="totalHours">0</div>
+          <div class="stat-label">Total Hours</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="totalProjects">0</div>
+          <div class="stat-label">Projects</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="totalCategories">0</div>
+          <div class="stat-label">Categories</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="totalEntries">0</div>
+          <div class="stat-label">Time Entries</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="avgSession">0</div>
+          <div class="stat-label">Avg Session (hrs)</div>
+        </div>
+      </div>
+
+      <div class="charts-grid">
+        <div class="chart-container" id="dailyChartContainer">
+          <h2 class="chart-title">Daily Activity</h2>
+          <div class="chart-wrapper">
+            <canvas id="dailyChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="charts-grid">
+        <div class="chart-container">
+          <h2 class="chart-title">Time by Project</h2>
+          <div class="chart-wrapper">
+            <canvas id="projectChart"></canvas>
+          </div>
+        </div>
+
+        <div class="chart-container">
+          <h2 class="chart-title">Time by Category</h2>
+          <div class="chart-wrapper">
+            <canvas id="categoryChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="recent-entries">
+        <h2>Time Entries</h2>
+        <div id="recentEntriesList"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let chartInstances = [];
+    let currentTimeframe = 7;
+    let currentProjectFilter = null;
+    let currentCategoryFilter = null;
+
+    function getUrlParams() {
+      const params = new URLSearchParams(window.location.search);
+      return {
+        timeframe: params.get('timeframe') || '7',
+        project: params.get('project'),
+        category: params.get('category')
+      };
+    }
+
+    function updateUrl() {
+      const params = new URLSearchParams();
+      params.set('timeframe', currentTimeframe.toString());
+      if (currentProjectFilter) params.set('project', currentProjectFilter);
+      if (currentCategoryFilter) params.set('category', currentCategoryFilter);
+      
+      const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+      window.history.replaceState({}, '', newUrl);
+    }
+
+    function initializeFromUrl() {
+      const params = getUrlParams();
+      currentTimeframe = parseInt(params.timeframe);
+      currentProjectFilter = params.project;
+      currentCategoryFilter = params.category;
+      
+      document.getElementById('timeframe').value = currentTimeframe;
+      loadData();
+    }
+
+    async function loadData(timeframe = null) {
+      try {
+        document.getElementById('loading').style.display = 'block';
+        document.getElementById('dashboard').style.display = 'none';
+        document.getElementById('error').style.display = 'none';
+        
+        if (timeframe !== null) {
+          currentTimeframe = timeframe;
+        }
+        
+        let url = '/api/entries?limit=1000';
+        if (currentTimeframe > 0) {
+          url += `&days=${currentTimeframe}`;
+        }
+        
+        const res = await fetch(url);
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+        let data = await res.json();
+        
+        if (currentProjectFilter) {
+          data = data.filter(entry => entry.project && entry.project.id && entry.project.id.toString() === currentProjectFilter);
+        }
+        if (currentCategoryFilter) {
+          data = data.filter(entry => (entry.category || 'No Category') === currentCategoryFilter);
+        }
+        
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('dashboard').style.display = 'block';
+        
+        processData(data, currentTimeframe);
+        updateUrl();
+      } catch (error) {
+        console.error('Error loading data:', error);
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('error').style.display = 'block';
+        document.getElementById('error').textContent = `Error loading data: ${error.message}`;
+      }
+    }
+
+    function changeTimeframe() {
+      const timeframe = parseInt(document.getElementById('timeframe').value);
+      currentTimeframe = timeframe;
+      updateUrl();
+      loadData();
+    }
+
+    function filterByProject(projectId) {
+      currentProjectFilter = projectId;
+      currentCategoryFilter = null;
+      document.getElementById('clearFilters').style.display = 'inline-block';
+      loadData();
+    }
+
+    function filterByCategory(category) {
+      currentCategoryFilter = category;
+      currentProjectFilter = null;
+      document.getElementById('clearFilters').style.display = 'inline-block';
+      loadData();
+    }
+
+    function clearFilters() {
+      currentProjectFilter = null;
+      currentCategoryFilter = null;
+      document.getElementById('clearFilters').style.display = 'none';
+      loadData();
+    }
+
+    function processData(data, timeframe) {
+      if (!data || data.length === 0) {
+        document.getElementById('error').style.display = 'block';
+        document.getElementById('error').textContent = 'No time tracking data found. Start tracking time to see your dashboard!';
+        return;
+      }
+
+      updateStats(data);
+      updateFilterIndicator();
+      
+        if (!currentProjectFilter && !currentCategoryFilter) {
+          createProjectChart(data);
+          createCategoryChart(data);
+          document.getElementById('projectChart').parentElement.parentElement.style.display = 'block';
+          document.getElementById('categoryChart').parentElement.parentElement.style.display = 'block';
+        } else if (currentProjectFilter) {
+          createCategoryChart(data);
+          document.getElementById('projectChart').parentElement.parentElement.style.display = 'none';
+          document.getElementById('categoryChart').parentElement.parentElement.style.display = 'block';
+        } else if (currentCategoryFilter) {
+          createProjectChart(data);
+          document.getElementById('projectChart').parentElement.parentElement.style.display = 'block';
+          document.getElementById('categoryChart').parentElement.parentElement.style.display = 'none';
+        }
+      
+      if (timeframe !== 1) {
+        createDailyChart(data);
+        document.getElementById('dailyChartContainer').style.display = 'block';
+      } else {
+        document.getElementById('dailyChartContainer').style.display = 'none';
+      }
+      
+      updateRecentEntries(data);
+    }
+
+    function updateStats(data) {
+      const totalHours = data.reduce((sum, entry) => {
+        return sum + (entry.duration ? entry.duration / 3600000000000 : 0);
+      }, 0);
+
+      const projects = new Set(data.map(entry => entry.project.name));
+      const categories = new Set(data.map(entry => entry.category || 'No Category'));
+      const totalProjects = projects.size;
+      const totalCategories = categories.size;
+      const totalEntries = data.length;
+      const avgSession = totalEntries > 0 ? totalHours / totalEntries : 0;
+
+      document.getElementById('totalHours').textContent = totalHours.toFixed(1);
+      document.getElementById('totalEntries').textContent = totalEntries;
+      document.getElementById('avgSession').textContent = avgSession.toFixed(1);
+
+      // Show/hide project and category stats based on filters
+      const projectCard = document.getElementById('totalProjects').parentElement;
+      const categoryCard = document.getElementById('totalCategories').parentElement;
+
+      if (currentProjectFilter) {
+        // When filtering by project, hide project count (always 1)
+        projectCard.style.display = 'none';
+        categoryCard.style.display = 'block';
+        document.getElementById('totalCategories').textContent = totalCategories;
+      } else if (currentCategoryFilter) {
+        // When filtering by category, hide category count (always 1)
+        projectCard.style.display = 'block';
+        categoryCard.style.display = 'none';
+        document.getElementById('totalProjects').textContent = totalProjects;
+      } else {
+        // Show both when no filters
+        projectCard.style.display = 'block';
+        categoryCard.style.display = 'block';
+        document.getElementById('totalProjects').textContent = totalProjects;
+        document.getElementById('totalCategories').textContent = totalCategories;
+      }
+    }
+
+    function updateFilterIndicator() {
+      const indicator = document.getElementById('filterIndicator');
+      const filterText = document.getElementById('filterText');
+      
+      if (currentProjectFilter) {
+        const projectName = document.querySelector('.entry-project .clickable-project')?.textContent || 'Project';
+        filterText.textContent = `Filtered by Project: ${projectName}`;
+        indicator.style.display = 'block';
+      } else if (currentCategoryFilter) {
+        filterText.textContent = `Filtered by Category: ${currentCategoryFilter}`;
+        indicator.style.display = 'block';
+      } else {
+        indicator.style.display = 'none';
+      }
+    }
+
+    function createProjectChart(data) {
+      const projectData = {};
+      
+      data.forEach(entry => {
+        const projectName = entry.project.name;
+        const hours = entry.duration ? entry.duration / 3600000000000 : 0;
+        
+        if (!projectData[projectName]) {
+          projectData[projectName] = 0;
+        }
+        projectData[projectName] += hours;
+      });
+
+      const labels = Object.keys(projectData);
+      const values = Object.values(projectData);
+
+      const colors = [
+        '#667eea', '#764ba2', '#f093fb', '#f5576c',
+        '#4facfe', '#00f2fe', '#43e97b', '#38f9d7',
+        '#ffecd2', '#fcb69f', '#a8edea', '#fed6e3'
+      ];
+
+      const ctx = document.getElementById('projectChart').getContext('2d');
+      
+      if (chartInstances[0]) {
+        chartInstances[0].destroy();
+      }
+
+      chartInstances[0] = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: values,
+            backgroundColor: colors.slice(0, labels.length),
+            borderWidth: 2,
+            borderColor: '#fff'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: {
+                padding: 20,
+                usePointStyle: true
+              }
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return context.label + ': ' + context.parsed.toFixed(1) + 'h';
+                }
+              }
+            }
+          },
+          onClick: function(event, elements) {
+            if (elements.length > 0) {
+              const index = elements[0].index;
+              const projectId = data.find(entry => entry.project.name === labels[index]).project.id;
+              filterByProject(projectId.toString());
+            }
+          }
+        }
+      });
+    }
+
+    function createCategoryChart(data) {
+      const categoryData = {};
+      
+      data.forEach(entry => {
+        const category = entry.category || 'No Category';
+        const hours = entry.duration ? entry.duration / 3600000000000 : 0;
+        
+        if (!categoryData[category]) {
+          categoryData[category] = 0;
+        }
+        categoryData[category] += hours;
+      });
+
+      const labels = Object.keys(categoryData);
+      const values = Object.values(categoryData);
+
+      const colors = [
+        '#667eea', '#764ba2', '#f093fb', '#f5576c',
+        '#4facfe', '#00f2fe', '#43e97b', '#38f9d7',
+        '#ffecd2', '#fcb69f', '#a8edea', '#fed6e3'
+      ];
+
+      const ctx = document.getElementById('categoryChart').getContext('2d');
+      
+      if (chartInstances[2]) {
+        chartInstances[2].destroy();
+      }
+
+      chartInstances[2] = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: values,
+            backgroundColor: colors.slice(0, labels.length),
+            borderWidth: 2,
+            borderColor: '#fff'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: {
+                padding: 20,
+                usePointStyle: true
+              }
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return context.label + ': ' + context.parsed.toFixed(1) + 'h';
+                }
+              }
+            }
+          },
+          onClick: function(event, elements) {
+            if (elements.length > 0) {
+              const index = elements[0].index;
+              filterByCategory(labels[index]);
+            }
+          }
+        }
+      });
+    }
+
+    function createDailyChart(data) {
+      const dailyData = {};
+      
+      data.forEach(entry => {
+        const date = new Date(entry.start_time).toISOString().split('T')[0];
+        const hours = entry.duration ? entry.duration / 3600000000000 : 0;
+        
+        if (!dailyData[date]) {
+          dailyData[date] = 0;
+        }
+        dailyData[date] += hours;
+      });
+
+      const sortedDates = Object.keys(dailyData).sort();
+      const last7Days = sortedDates.slice(-7);
+      const values = last7Days.map(date => dailyData[date]);
+
+      const ctx = document.getElementById('dailyChart').getContext('2d');
+      
+      if (chartInstances[1]) {
+        chartInstances[1].destroy();
+      }
+
+      chartInstances[1] = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: last7Days.map(date => {
+            const d = new Date(date);
+            return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+          }),
+          datasets: [{
+            label: 'Hours',
+            data: values,
+            backgroundColor: 'rgba(102, 126, 234, 0.8)',
+            borderColor: 'rgba(102, 126, 234, 1)',
+            borderWidth: 2,
+            borderRadius: 8,
+            borderSkipped: false,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback: function(value) {
+                  return value + 'h';
+                }
+              }
+            }
+          },
+          plugins: {
+            legend: {
+              display: false
+            }
+          }
+        }
+      });
+    }
+
+    function updateRecentEntries(data) {
+      const container = document.getElementById('recentEntriesList');
+      container.innerHTML = '';
+      data.forEach(entry => {
+        const startTime = new Date(entry.start_time);
+        const endTime = entry.end_time ? new Date(entry.end_time) : null;
+        const duration = entry.duration ? entry.duration / 3600000000000 : 0;
+
+        const dateStr = startTime.toLocaleDateString('en-GB');
+        const timeStr = endTime 
+          ? `${startTime.toLocaleTimeString('en-GB', {hour: '2-digit', minute: '2-digit'})} - ${endTime.toLocaleTimeString('en-GB', {hour: '2-digit', minute: '2-digit'})}`
+          : `${startTime.toLocaleTimeString('en-GB', {hour: '2-digit', minute: '2-digit'})} - ongoing`;
+
+        // Create entry-item div
+        const entryItem = document.createElement('div');
+        entryItem.className = 'entry-item';
+
+        // Left side (project/category/date)
+        const leftDiv = document.createElement('div');
+
+        // Project/category row
+        const projectDiv = document.createElement('div');
+        projectDiv.className = 'entry-project';
+
+        // Project span
+        const projectSpan = document.createElement('span');
+        projectSpan.className = 'clickable-project';
+        projectSpan.textContent = entry.project.name;
+        projectSpan.style.cursor = 'pointer';
+        projectSpan.onclick = function() { filterByProject(entry.project.id); };
+        projectDiv.appendChild(projectSpan);
+
+        // Category span (if present)
+        if (entry.category) {
+          const sep = document.createTextNode(' • ');
+          projectDiv.appendChild(sep);
+          const categorySpan = document.createElement('span');
+          categorySpan.className = 'clickable-category';
+          categorySpan.textContent = entry.category;
+          categorySpan.style.cursor = 'pointer';
+          categorySpan.onclick = function() { filterByCategory(entry.category); };
+          projectDiv.appendChild(categorySpan);
+        }
+
+        leftDiv.appendChild(projectDiv);
+
+        // Date/time row
+        const dateDiv = document.createElement('div');
+        dateDiv.className = 'entry-date';
+        dateDiv.textContent = `${dateStr} • ${timeStr}`;
+        leftDiv.appendChild(dateDiv);
+
+        entryItem.appendChild(leftDiv);
+
+        // Duration
+        const durationDiv = document.createElement('div');
+        durationDiv.className = 'entry-duration';
+        durationDiv.textContent = `${duration.toFixed(1)}h`;
+        entryItem.appendChild(durationDiv);
+
+        container.appendChild(entryItem);
+      });
+    }
+
+    initializeFromUrl();
+  </script>
+</body>
+
+</html>
