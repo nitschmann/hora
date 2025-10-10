@@ -75,7 +75,7 @@ func (s *Server) Start(ctx context.Context, port int) error {
 		fs.ServeHTTP(w, r)
 	})
 
-	addr := fmt.Sprintf("0.0.0.0:%d", port)
+	addr := fmt.Sprintf("127.0.0.1:%d", port)
 
 	fmt.Printf("WebUI running at http://%s\n", addr)
 
