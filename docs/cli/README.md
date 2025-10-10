@@ -27,5 +27,6 @@ hora is a simple command-line time tracking tool. Track your project time with e
 * [hora status](hora_status.md)	 - Show the currently active time tracking session
 * [hora stop](hora_stop.md)	 - Stop the current time tracking session
 * [hora times](hora_times.md)	 - List all time entries across all projects
+* [hora ui](hora_ui.md)	 - Start the web UI
 * [hora version](hora_version.md)	 - Show version information
 
