@@ -402,7 +402,7 @@
         let data = await res.json();
         
         if (currentProjectFilter) {
-          data = data.filter(entry => entry.project.id.toString() === currentProjectFilter);
+          data = data.filter(entry => entry.project && entry.project.id && entry.project.id.toString() === currentProjectFilter);
         }
         if (currentCategoryFilter) {
           data = data.filter(entry => (entry.category || 'No Category') === currentCategoryFilter);
