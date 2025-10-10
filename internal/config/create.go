@@ -37,6 +37,9 @@ func CreateDefault(directory string, forceOverwrite bool) (string, error) {
 	viper.Set("list_limit", defaultListLimit)
 	viper.Set("list_order", defaultListOrder)
 	viper.Set("use_background_tracker", defaultUseBackgroundTracker)
+	viper.Set("web_ui_port", defaultWebUIPort)
+	viper.Set("background_tracker_auto_stop", defaultBackgroundTrackerAutoStop)
+	viper.Set("background_tracker_auto_stop_after", defaultBackgroundTrackerAutoStopAfter)
 
 	configFilepath := path.Join(directory, FileName)
 

@@ -37,6 +37,15 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
+
+	"github.com/nitschmann/hora/internal/config"
+	"github.com/nitschmann/hora/internal/service"
+)
+
+var (
+	cfg              config.Config
+	stopCheckChannel = make(chan struct{})
 )
 
 //export onScreenLocked
@@ -58,6 +67,9 @@ func onScreenLocked() {
 				"Time tracking paused due to screen lock",
 				"project", activeEntry.Project.Name,
 			)
+
+			// start monitoring pause duration
+			go monitorPauseDuration(ctx)
 		}
 	} else {
 		// very unlikely case - maybe even panic?
@@ -68,6 +80,10 @@ func onScreenLocked() {
 //export onScreenUnlocked
 func onScreenUnlocked() {
 	Logger().Info("Screen unlocked - attempting to resume time tracking")
+
+	// stop pause monitoring if running
+	close(stopCheckChannel)
+	stopCheckChannel = make(chan struct{})
 
 	if timeService != nil {
 		ctx := context.Background()
@@ -95,8 +111,51 @@ func onScreenUnlocked() {
 	}
 }
 
+func monitorPauseDuration(ctx context.Context) {
+	if !cfg.BackgroundTrackerAutoStop {
+		Logger().Info("Auto-stop on long pause is disabled, not monitoring pause duration")
+		return
+	}
+
+	pauseLimit := time.Duration(cfg.BackgroundTrackerAutoStopAfter) * time.Minute
+	start := time.Now()
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			eleapsed := time.Since(start)
+			Logger().Info("Monitoring pause duration...", "elapsed", eleapsed.String(), "limit", pauseLimit.String())
+			if eleapsed >= pauseLimit {
+				timeEntry, err := timeService.StopTracking(ctx)
+				if err != nil {
+					Logger().Error("Failed to stop tracking after long pause", "error", err)
+				}
+
+				Logger().Info(
+					"Tracking session stopped due to long pause",
+					"project", timeEntry.Project.Name,
+				)
+
+				Stop()
+				os.Exit(0)
+			}
+		case <-stopCheckChannel:
+			Logger().Info("Pause duration monitoring stopped (seesion resumed)")
+			return
+		}
+	}
+}
+
 // Start begins listening for screen lock events
-func Start() {
+func Start(conf *config.Config, timeService service.TimeTracking) {
+	SetTimeTrackingService(timeService)
+	if conf != nil {
+		// dereference to avoid potential nil pointer dereference later
+		cfg = *conf
+	}
+
 	Logger().Info("Starting screen lock detection...")
 
 	// Handle SIGTERM / SIGINT for graceful shutdown

@@ -23,7 +23,10 @@ func TestLoad_WithValidConfigFile(t *testing.T) {
 debug: true
 list_limit: 100
 list_order: "asc"
-use_background_tracker: false`
+use_background_tracker: false
+web_ui_port: 9090
+background_tracker_auto_stop: true
+background_tracker_auto_stop_after: 45`
 
 	err := os.WriteFile(configPath, []byte(configContent), 0644)
 	require.NoError(t, err)
@@ -36,6 +39,9 @@ use_background_tracker: false`
 	assert.Equal(t, 100, cfg.ListLimit)
 	assert.Equal(t, "asc", cfg.ListOrder)
 	assert.False(t, cfg.UseBackgroundTracker)
+	assert.Equal(t, 9090, cfg.WebUIPort)
+	assert.True(t, cfg.BackgroundTrackerAutoStop)
+	assert.Equal(t, 45, cfg.BackgroundTrackerAutoStopAfter)
 }
 
 func TestLoad_WithInvalidConfigFile(t *testing.T) {
@@ -85,6 +91,9 @@ func TestLoad_WithEmptyConfigFile(t *testing.T) {
 	assert.Equal(t, 50, cfg.ListLimit)
 	assert.Equal(t, "desc", cfg.ListOrder)
 	assert.True(t, cfg.UseBackgroundTracker)
+	assert.Equal(t, 8080, cfg.WebUIPort)
+	assert.False(t, cfg.BackgroundTrackerAutoStop)
+	assert.Equal(t, 120, cfg.BackgroundTrackerAutoStopAfter)
 }
 
 func TestLoad_WithDefaultsOnly(t *testing.T) {
@@ -102,6 +111,9 @@ func TestLoad_WithDefaultsOnly(t *testing.T) {
 	assert.Equal(t, 50, cfg.ListLimit)
 	assert.Equal(t, "desc", cfg.ListOrder)
 	assert.True(t, cfg.UseBackgroundTracker)
+	assert.Equal(t, 8080, cfg.WebUIPort)
+	assert.False(t, cfg.BackgroundTrackerAutoStop)
+	assert.Equal(t, 120, cfg.BackgroundTrackerAutoStopAfter)
 }
 
 func TestCreateDefault_WithEmptyDirectory(t *testing.T) {
@@ -122,6 +134,9 @@ func TestCreateDefault_WithEmptyDirectory(t *testing.T) {
 	assert.Equal(t, 50, cfg.ListLimit)
 	assert.Equal(t, "desc", cfg.ListOrder)
 	assert.True(t, cfg.UseBackgroundTracker)
+	assert.Equal(t, 8080, cfg.WebUIPort)
+	assert.False(t, cfg.BackgroundTrackerAutoStop)
+	assert.Equal(t, 120, cfg.BackgroundTrackerAutoStopAfter)
 }
 
 func TestCreateDefault_WithForceOverwrite(t *testing.T) {
@@ -149,6 +164,9 @@ use_background_tracker: false`
 	assert.Equal(t, 50, cfg.ListLimit)
 	assert.Equal(t, "desc", cfg.ListOrder)
 	assert.True(t, cfg.UseBackgroundTracker)
+	assert.Equal(t, 8080, cfg.WebUIPort)
+	assert.False(t, cfg.BackgroundTrackerAutoStop)
+	assert.Equal(t, 120, cfg.BackgroundTrackerAutoStopAfter)
 }
 
 func TestCreateDefault_WithoutForceOverwrite(t *testing.T) {
@@ -216,16 +234,34 @@ func TestGetDefaultDatabaseDir(t *testing.T) {
 
 func TestValidateConfig_WithValidConfig(t *testing.T) {
 	cfg := &Config{
-		DatabaseDir:          "/tmp/test",
-		Debug:                true,
-		ListLimit:            100,
-		ListOrder:            "asc",
-		UseBackgroundTracker: false,
-		WebUIPort:            3000,
+		DatabaseDir:                    "/tmp/test",
+		Debug:                          true,
+		ListLimit:                      100,
+		ListOrder:                      "asc",
+		UseBackgroundTracker:           false,
+		WebUIPort:                      3000,
+		BackgroundTrackerAutoStop:      true,
+		BackgroundTrackerAutoStopAfter: 60,
 	}
 
 	err := validateConfig(cfg)
 	assert.NoError(t, err)
+}
+
+func TestValidateConfig_WithInvalidBackgroundAutoStopAfter(t *testing.T) {
+	cfg := &Config{
+		DatabaseDir:                    "/tmp/test",
+		Debug:                          true,
+		ListLimit:                      50,
+		ListOrder:                      "asc",
+		UseBackgroundTracker:           true,
+		WebUIPort:                      8080,
+		BackgroundTrackerAutoStop:      true,
+		BackgroundTrackerAutoStopAfter: 0,
+	}
+
+	err := validateConfig(cfg)
+	assert.Error(t, err)
 }
 
 func TestValidateConfig_WithInvalidListLimit(t *testing.T) {

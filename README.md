@@ -85,6 +85,9 @@ debug: false
 list_limit: 50
 list_order: "desc"
 use_background_tracker: true
+web_ui_port: 8080
+background_tracker_auto_stop: false
+background_tracker_auto_stop_after: 120
 ```
 
 ### Configuration File Locations
@@ -118,6 +121,15 @@ hora config init --force
 | `list_limit` | Maximum number of entries to show in lists | `50` | `1` or greater |
 | `list_order` | Sort order for time entry lists | `desc` | `asc`, `desc` |
 | `use_background_tracker` | Enable automatic pause/resume on screen lock | `true` | `true`, `false` |
+| `web_ui_port` | Port for the web dashboard | `8080` | `1` to `65535` |
+
+#### Background tracker auto-stop
+
+When enabled, the background tracker will automatically stop an active tracking session if the screen stays locked longer than the configured threshold (minutes). This is macOS-only, and complements the default auto-pause/resume behavior.
+
+Options:
+- `background_tracker_auto_stop` — enable/disable auto-stop (`false` by default)
+- `background_tracker_auto_stop_after` — minutes of pause before auto-stop (`120` by default, minimum `1`)
 
 ### Using Custom Configuration
 
