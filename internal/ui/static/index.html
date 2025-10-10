@@ -740,34 +740,66 @@
 
     function updateRecentEntries(data) {
       const container = document.getElementById('recentEntriesList');
-      
-      container.innerHTML = data.map(entry => {
+      container.innerHTML = '';
+      data.forEach(entry => {
         const startTime = new Date(entry.start_time);
         const endTime = entry.end_time ? new Date(entry.end_time) : null;
         const duration = entry.duration ? entry.duration / 3600000000000 : 0;
-        const category = entry.category ? ` • ${entry.category}` : '';
-        
+
         const dateStr = startTime.toLocaleDateString('en-GB');
         const timeStr = endTime 
           ? `${startTime.toLocaleTimeString('en-GB', {hour: '2-digit', minute: '2-digit'})} - ${endTime.toLocaleTimeString('en-GB', {hour: '2-digit', minute: '2-digit'})}`
           : `${startTime.toLocaleTimeString('en-GB', {hour: '2-digit', minute: '2-digit'})} - ongoing`;
-        
-        const categoryDisplay = entry.category 
-          ? ` • <span class="clickable-category" onclick="filterByCategory('${entry.category}')">${entry.category}</span>`
-          : '';
-        
-        return `
-          <div class="entry-item">
-            <div>
-              <div class="entry-project">
-                <span class="clickable-project" onclick="filterByProject('${entry.project.id}')">${entry.project.name}</span>${categoryDisplay}
-              </div>
-              <div class="entry-date">${dateStr} • ${timeStr}</div>
-            </div>
-            <div class="entry-duration">${duration.toFixed(1)}h</div>
-          </div>
-        `;
-      }).join('');
+
+        // Create entry-item div
+        const entryItem = document.createElement('div');
+        entryItem.className = 'entry-item';
+
+        // Left side (project/category/date)
+        const leftDiv = document.createElement('div');
+
+        // Project/category row
+        const projectDiv = document.createElement('div');
+        projectDiv.className = 'entry-project';
+
+        // Project span
+        const projectSpan = document.createElement('span');
+        projectSpan.className = 'clickable-project';
+        projectSpan.textContent = entry.project.name;
+        projectSpan.style.cursor = 'pointer';
+        projectSpan.onclick = function() { filterByProject(entry.project.id); };
+        projectDiv.appendChild(projectSpan);
+
+        // Category span (if present)
+        if (entry.category) {
+          const sep = document.createTextNode(' • ');
+          projectDiv.appendChild(sep);
+          const categorySpan = document.createElement('span');
+          categorySpan.className = 'clickable-category';
+          categorySpan.textContent = entry.category;
+          categorySpan.style.cursor = 'pointer';
+          categorySpan.onclick = function() { filterByCategory(entry.category); };
+          projectDiv.appendChild(categorySpan);
+        }
+
+        leftDiv.appendChild(projectDiv);
+
+        // Date/time row
+        const dateDiv = document.createElement('div');
+        dateDiv.className = 'entry-date';
+        dateDiv.textContent = `${dateStr} • ${timeStr}`;
+        leftDiv.appendChild(dateDiv);
+
+        entryItem.appendChild(leftDiv);
+
+        // Duration
+        const durationDiv = document.createElement('div');
+        durationDiv.className = 'entry-duration';
+        durationDiv.textContent = `${duration.toFixed(1)}h`;
+        entryItem.appendChild(durationDiv);
+
+        container.appendChild(entryItem);
+      });
     }
 
     initializeFromUrl();
