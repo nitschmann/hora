@@ -125,9 +125,9 @@ func monitorPauseDuration(ctx context.Context) {
 	for {
 		select {
 		case <-ticker.C:
-			eleapsed := time.Since(start)
-			Logger().Info("Monitoring pause duration...", "elapsed", eleapsed.String(), "limit", pauseLimit.String())
-			if eleapsed >= pauseLimit {
+			elapsed := time.Since(start)
+			Logger().Info("Monitoring pause duration...", "elapsed", elapsed.String(), "limit", pauseLimit.String())
+			if elapsed >= pauseLimit {
 				timeEntry, err := timeService.StopTracking(ctx)
 				if err != nil {
 					Logger().Error("Failed to stop tracking after long pause", "error", err)
