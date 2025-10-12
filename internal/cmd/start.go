@@ -83,8 +83,7 @@ func NewStartCmd() *cobra.Command {
 			fmt.Printf("Started tracking time for project: %s\n", project)
 
 			if useBackgroundTracker {
-				backgroundtracker.SetTimeTrackingService(timeService)
-				backgroundtracker.Start()
+				backgroundtracker.Start(conf, timeService)
 			}
 
 			return nil

@@ -36,8 +36,46 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
+	"time"
+
+	"github.com/nitschmann/hora/internal/config"
+	"github.com/nitschmann/hora/internal/service"
 )
+
+var (
+	cfg config.Config
+	pm  pauseMonitor
+)
+
+type pauseMonitor struct {
+	mu     sync.Mutex
+	cancel context.CancelFunc
+}
+
+func (p *pauseMonitor) start(ctx context.Context) {
+	p.mu.Lock()
+	if p.cancel != nil {
+		p.cancel()
+		p.cancel = nil
+	}
+	cctx, cancel := context.WithCancel(ctx)
+	p.cancel = cancel
+	p.mu.Unlock()
+
+	go monitorPauseDuration(cctx)
+}
+
+func (p *pauseMonitor) stop() {
+	p.mu.Lock()
+	if p.cancel != nil {
+		p.cancel()
+		p.cancel = nil
+	}
+
+	p.mu.Unlock()
+}
 
 //export onScreenLocked
 func onScreenLocked() {
@@ -58,6 +96,9 @@ func onScreenLocked() {
 				"Time tracking paused due to screen lock",
 				"project", activeEntry.Project.Name,
 			)
+
+			// start monitoring pause duration
+			pm.start(ctx)
 		}
 	} else {
 		// very unlikely case - maybe even panic?
@@ -68,6 +109,9 @@ func onScreenLocked() {
 //export onScreenUnlocked
 func onScreenUnlocked() {
 	Logger().Info("Screen unlocked - attempting to resume time tracking")
+
+	// stop pause monitoring if running
+	pm.stop()
 
 	if timeService != nil {
 		ctx := context.Background()
@@ -95,8 +139,51 @@ func onScreenUnlocked() {
 	}
 }
 
+func monitorPauseDuration(ctx context.Context) {
+	if !cfg.BackgroundTrackerAutoStop {
+		Logger().Info("Auto-stop on long pause is disabled, not monitoring pause duration")
+		return
+	}
+
+	pauseLimit := time.Duration(cfg.BackgroundTrackerAutoStopAfter) * time.Minute
+	start := time.Now()
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			elapsed := time.Since(start)
+			Logger().Info("Monitoring pause duration...", "elapsed", elapsed.String(), "limit", pauseLimit.String())
+			if elapsed >= pauseLimit {
+				timeEntry, err := timeService.StopTracking(ctx)
+				if err != nil {
+					Logger().Error("Failed to stop tracking after long pause", "error", err)
+				}
+
+				Logger().Info(
+					"Tracking session stopped due to long pause",
+					"project", timeEntry.Project.Name,
+				)
+
+				Stop()
+				os.Exit(0)
+			}
+		case <-ctx.Done():
+			Logger().Info("Pause duration monitoring stopped (session resumed)")
+			return
+		}
+	}
+}
+
 // Start begins listening for screen lock events
-func Start() {
+func Start(conf *config.Config, timeService service.TimeTracking) {
+	SetTimeTrackingService(timeService)
+	if conf != nil {
+		// dereference to avoid potential nil pointer dereference later
+		cfg = *conf
+	}
+
 	Logger().Info("Starting screen lock detection...")
 
 	// Handle SIGTERM / SIGINT for graceful shutdown
