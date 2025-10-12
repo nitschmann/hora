@@ -142,7 +142,7 @@ func monitorPauseDuration(ctx context.Context) {
 				os.Exit(0)
 			}
 		case <-stopCheckChannel:
-			Logger().Info("Pause duration monitoring stopped (seesion resumed)")
+			Logger().Info("Pause duration monitoring stopped (session resumed)")
 			return
 		}
 	}
