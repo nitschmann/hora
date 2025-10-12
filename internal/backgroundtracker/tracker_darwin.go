@@ -36,6 +36,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -44,9 +45,37 @@ import (
 )
 
 var (
-	cfg              config.Config
-	stopCheckChannel = make(chan struct{})
+	cfg config.Config
+	pm  pauseMonitor
 )
+
+type pauseMonitor struct {
+	mu     sync.Mutex
+	cancel context.CancelFunc
+}
+
+func (p *pauseMonitor) start(ctx context.Context) {
+	p.mu.Lock()
+	if p.cancel != nil {
+		p.cancel()
+		p.cancel = nil
+	}
+	cctx, cancel := context.WithCancel(ctx)
+	p.cancel = cancel
+	p.mu.Unlock()
+
+	go monitorPauseDuration(cctx)
+}
+
+func (p *pauseMonitor) stop() {
+	p.mu.Lock()
+	if p.cancel != nil {
+		p.cancel()
+		p.cancel = nil
+	}
+
+	p.mu.Unlock()
+}
 
 //export onScreenLocked
 func onScreenLocked() {
@@ -69,7 +98,7 @@ func onScreenLocked() {
 			)
 
 			// start monitoring pause duration
-			go monitorPauseDuration(ctx)
+			pm.start(ctx)
 		}
 	} else {
 		// very unlikely case - maybe even panic?
@@ -82,8 +111,7 @@ func onScreenUnlocked() {
 	Logger().Info("Screen unlocked - attempting to resume time tracking")
 
 	// stop pause monitoring if running
-	close(stopCheckChannel)
-	stopCheckChannel = make(chan struct{})
+	pm.stop()
 
 	if timeService != nil {
 		ctx := context.Background()
@@ -141,7 +169,7 @@ func monitorPauseDuration(ctx context.Context) {
 				Stop()
 				os.Exit(0)
 			}
-		case <-stopCheckChannel:
+		case <-ctx.Done():
 			Logger().Info("Pause duration monitoring stopped (session resumed)")
 			return
 		}
